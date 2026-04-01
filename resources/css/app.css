@@ -1,0 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] {
+  display: none !important;
+}
+
+/* Hide scrollbar but keep overflow scrolling (sidebar nav, etc.) */
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Sidebar rail: match collapsed width before Alpine hydrates (avoids expand-then-collapse flash) */
+@media (min-width: 1024px) {
+  html.rail-collapsed #admin-sidebar,
+  html.rail-collapsed #tenant-staff-sidebar,
+  html.rail-collapsed #tenant-user-sidebar {
+    width: 4rem;
+    max-width: none;
+  }
+
+  html.rail-collapsed [data-dashboard-main-rail] {
+    padding-left: 4rem;
+  }
+}
