@@ -82,6 +82,28 @@
                             <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Downloads') }}</p>
                                 <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ __('Release files') }}</p>
+                                @php
+                                    $zipAsset = null;
+                                    foreach (($latestRelease['assets'] ?? []) as $a) {
+                                        $n = strtolower((string) ($a['name'] ?? ''));
+                                        $ct = strtolower((string) ($a['content_type'] ?? ''));
+                                        if ($n !== '' && (str_ends_with($n, '.zip') || str_contains($ct, 'zip'))) {
+                                            $zipAsset = $a;
+                                            break;
+                                        }
+                                    }
+                                @endphp
+                                @if($zipAsset && !empty($zipAsset['download_url']))
+                                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                                        <span class="font-semibold">{{ __('Recommended') }}:</span>
+                                        {{ __('Download') }}
+                                        <a class="font-semibold underline decoration-amber-300 hover:decoration-amber-600"
+                                           href="{{ $zipAsset['download_url'] }}" target="_blank" rel="noopener noreferrer">
+                                            {{ $zipAsset['name'] ?? __('update.zip') }}
+                                        </a>
+                                        {{ __('for manual file update.') }}
+                                    </div>
+                                @endif
                                 <ul class="mt-2 space-y-1.5">
                                     @foreach(($latestRelease['assets'] ?? []) as $asset)
                                         <li class="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50/60 px-3 py-2">
@@ -112,6 +134,30 @@
                             </div>
                         @endif
                     </div>
+
+                    @if(!empty($latestRelease['assets'] ?? []))
+                        <div class="mt-3 rounded-lg border border-slate-200 bg-white px-4 py-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Manual update') }}</p>
+                                    <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ __('How to apply the ZIP update (self-hosted)') }}</p>
+                                    <p class="mt-1 text-xs text-slate-600">{{ __('Use this only if you are hosting the app on your own server/PC. If the platform is managed, code updates are applied by the platform admin.') }}</p>
+                                </div>
+                            </div>
+                            <ol class="mt-3 list-decimal space-y-2 pl-5 text-xs leading-relaxed text-slate-700">
+                                <li><span class="font-semibold">{{ __('Backup') }}</span>: {{ __('Copy your current project folder and database(s) before updating.') }}</li>
+                                <li><span class="font-semibold">{{ __('Download') }}</span>: {{ __('Download the latest release ZIP from the “Downloads” section above.') }}</li>
+                                <li><span class="font-semibold">{{ __('Extract') }}</span>: {{ __('Extract the ZIP to a new folder (do not overwrite yet).') }}</li>
+                                <li><span class="font-semibold">{{ __('Replace files') }}</span>: {{ __('Copy the extracted files into your existing project folder and allow overwrite/replace when prompted.') }}</li>
+                                <li><span class="font-semibold">{{ __('Install dependencies') }}</span>: {{ __('Run') }} <code class="rounded bg-slate-100 px-1 py-0.5">composer install --no-dev --optimize-autoloader</code> {{ __('(and') }} <code class="rounded bg-slate-100 px-1 py-0.5">npm ci && npm run build</code> {{ __('if your ZIP doesn’t include built assets).') }}</li>
+                                <li><span class="font-semibold">{{ __('Migrate') }}</span>: {{ __('Run') }} <code class="rounded bg-slate-100 px-1 py-0.5">php artisan migrate --force</code> {{ __('and then apply tenant updates from this page if needed.') }}</li>
+                                <li><span class="font-semibold">{{ __('Clear cache') }}</span>: {{ __('Run') }} <code class="rounded bg-slate-100 px-1 py-0.5">php artisan optimize:clear</code> {{ __('and restart your web server (Apache/Nginx) + queue worker.') }}</li>
+                            </ol>
+                            <p class="mt-3 text-[11px] text-slate-500">
+                                {{ __('If you see errors after updating, restore from your backup and re-apply the update carefully.') }}
+                            </p>
+                        </div>
+                    @endif
                 @endif
             </section>
 
