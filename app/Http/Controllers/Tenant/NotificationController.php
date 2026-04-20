@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\MaintenanceTicket;
 use App\Models\Tenant;
 use App\Models\TenantPlanUpgradeRequest;
 use Illuminate\Http\JsonResponse;
@@ -74,7 +75,25 @@ class NotificationController extends Controller
                 ];
             });
 
-        $items = $activityItems
+        $supportPrefix = 'tenant#' . $tenant->id . ' ';
+        $supportItems = MaintenanceTicket::query()
+            ->where('status', MaintenanceTicket::STATUS_OPEN)
+            ->where('related_tenant', 'like', $supportPrefix . '%')
+            ->latest('updated_at')
+            ->limit(6)
+            ->get()
+            ->map(function (MaintenanceTicket $row) {
+                return [
+                    'action' => 'support.ticket.open',
+                    'description' => __('Support ticket submitted: :t', ['t' => $row->title]),
+                    'created_at' => optional($row->updated_at)?->toIso8601String(),
+                    'time_human' => optional($row->updated_at)?->diffForHumans(),
+                    'url' => tenant_url('/support'),
+                ];
+            });
+
+        $items = $supportItems
+            ->concat($activityItems)
             ->concat($upgradeItems)
             ->sortByDesc(fn (array $item) => $item['created_at'] ?? '')
             ->take(8)

@@ -5,6 +5,9 @@
         }
         return false;
     };
+    $openMaintenanceCount = \App\Models\MaintenanceTicket::query()
+        ->where('status', \App\Models\MaintenanceTicket::STATUS_OPEN)
+        ->count();
 @endphp
 
 <aside id="admin-sidebar"
@@ -84,6 +87,13 @@
                    :class="{ 'lg:justify-center lg:px-2': sidebarCollapsed }">
                     <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-2 1 3.25.75L11 24l1-3 .75-3.25L9.75 17zM6 2l6 6-2 2-6-6V2h2zm9 2l3 3-8 8-3-3 8-8z"/></svg>
                     <span class="truncate" :class="{ 'lg:hidden': sidebarCollapsed }">{{ __('Maintenance') }}</span>
+                    @if($openMaintenanceCount > 0)
+                        <span class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm ring-1 ring-amber-200"
+                              :class="{ 'lg:hidden': sidebarCollapsed }"
+                              title="{{ __('Open tickets') }}">
+                            {{ min(99, (int) $openMaintenanceCount) }}
+                        </span>
+                    @endif
                 </a>
             </li>
             <li>
