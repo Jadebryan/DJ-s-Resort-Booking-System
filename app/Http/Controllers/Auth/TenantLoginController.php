@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\TenantDomain;
-use App\Models\TenantModel\Tenant as TenantUser;
+use App\Models\TenantModel\Tenant as TenantStaffUser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -33,7 +33,7 @@ class TenantLoginController extends Controller
 
         if (! $onTenantDomain) {
             $request->validate([
-                'tenant_domain' => ['required', 'string', 'max:255'],
+                'tenant_domain' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9][A-Za-z0-9.\\-]*[A-Za-z0-9]$/'],
             ]);
             $domain = strtolower(trim($request->string('tenant_domain')->toString()));
             $domain = (string) preg_replace('#^https?://#i', '', $domain);
@@ -49,7 +49,7 @@ class TenantLoginController extends Controller
         }
 
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => 'required',
         ]);
 
@@ -86,9 +86,15 @@ class TenantLoginController extends Controller
             ])->onlyInput('email');
         }
 
-        $user = new TenantUser();
-        $user->setConnection('tenant');
-        $user->forceFill((array) $userRecord);
+        // Use Eloquent so "remember me" updates remember_token via UPDATE (not INSERT).
+        // Note: `on()` is a Model API (Tenant::on('conn')), not Builder::on().
+        $user = TenantStaffUser::on('tenant')->where('email', $request->email)->first();
+
+        if (! $user) {
+            return back()->withErrors([
+                'email' => __('The provided credentials are invalid.'),
+            ])->onlyInput('email');
+        }
 
         Auth::guard('tenant')->login($user, $request->boolean('remember'));
         $request->session()->regenerate();
@@ -97,6 +103,11 @@ class TenantLoginController extends Controller
         $request->session()->put('tenant_slug', $tenant->slug);
         $request->session()->put('tenant_domain', $host);
 
-        return redirect('/dashboard');
+        $redirectTo = '/dashboard';
+        if (! $tenant->is_active) {
+            $redirectTo = '/payment';
+        }
+
+        return redirect($redirectTo);
     }
 }

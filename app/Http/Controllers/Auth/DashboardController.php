@@ -8,6 +8,12 @@ use App\Models\Room;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantRegistrationRequest;
+use App\Support\BookingCalendarGrid;
+use App\Support\GuestBookingCalendar;
+use App\Support\TenantPlanFeatures;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController
@@ -34,8 +40,14 @@ class DashboardController
         ]);
     }
 
-    public function tenantIndex(): View
+    public function tenantIndex(Request $request): View|RedirectResponse
     {
+        if (! TenantPlanFeatures::hasRequestFeature($request, 'simple_dashboard')) {
+            return redirect()
+                ->route('tenant.payment.portal')
+                ->with('error', 'Dashboard widgets are not available on your current subscription.');
+        }
+
         $roomsCount = Room::count();
         $totalBookings = Booking::count();
         $pendingBookings = Booking::where('status', 'pending')->count();
@@ -53,6 +65,16 @@ class DashboardController
                 return $nights * (float) $b->room->price_per_night;
             });
 
+        $dashboardCalendarMonth = Carbon::now()->startOfMonth();
+        $startOfMonth = $dashboardCalendarMonth->copy();
+        $endOfMonth = $dashboardCalendarMonth->copy()->endOfMonth();
+        $monthBookings = Booking::with('room')
+            ->where('check_in', '<=', $endOfMonth)
+            ->where('check_out', '>=', $startOfMonth)
+            ->orderBy('check_in')
+            ->get();
+        $dashboardCalendarWeeks = BookingCalendarGrid::buildWeeks($startOfMonth, $endOfMonth, $monthBookings);
+
         return view('Tenant.dashboard', [
             'roomsCount' => $roomsCount,
             'totalBookings' => $totalBookings,
@@ -60,6 +82,10 @@ class DashboardController
             'confirmedBookings' => $confirmedBookings,
             'cancelledBookings' => $cancelledBookings,
             'totalRevenue' => $totalRevenue,
+            'dashboardCalendarWeeks' => $dashboardCalendarWeeks,
+            'dashboardCalendarMonth' => $dashboardCalendarMonth,
+            'dashboardMonthBookings' => $monthBookings,
+            'tenantHasBookingCalendar' => TenantPlanFeatures::hasRequestFeature($request, 'booking_calendar'),
         ]);
     }
 
@@ -71,6 +97,8 @@ class DashboardController
         $confirmedBookings = Booking::where('regular_user_id', $user->id)->where('status', 'confirmed')->count();
         $cancelledBookings = Booking::where('regular_user_id', $user->id)->where('status', 'cancelled')->count();
         $rooms = Room::where('is_available', true)->orderBy('name')->get();
+        $gcal = GuestBookingCalendar::currentMonthForUser((int) $user->id);
+
         return view('TenantUser.dashboard', [
             'totalBookings' => $totalBookings,
             'pendingBookings' => $pendingBookings,
@@ -78,6 +106,9 @@ class DashboardController
             'cancelledBookings' => $cancelledBookings,
             'availableRoomsCount' => $rooms->count(),
             'rooms' => $rooms,
+            'guestDashboardCalendarWeeks' => $gcal['calendarWeeks'],
+            'guestDashboardMonthBookings' => $gcal['monthBookings'],
+            'guestDashboardCalendarMonth' => $gcal['date'],
         ]);
     }
 }

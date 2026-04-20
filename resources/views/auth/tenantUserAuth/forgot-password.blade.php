@@ -29,6 +29,7 @@
                 :value="old('email')"
                 required
                 autofocus
+                constraint="email"
             />
             <x-tenant-user::input-error :messages="$errors->get('email')" class="mt-1" />
         </div>

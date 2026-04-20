@@ -19,13 +19,13 @@
 
         <div>
             <x-tenant-user::input-label for="name" :value="__('Name')" />
-            <x-tenant-user::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $user->name)" required autofocus autocomplete="name" />
+            <x-tenant-user::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $user->name)" required autofocus autocomplete="name" constraint="personName" />
             <x-tenant-user::input-error class="mt-2" :messages="$errors->get('name')" />
         </div>
 
         <div>
             <x-tenant-user::input-label for="email" :value="__('Email')" />
-            <x-tenant-user::text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
+            <x-tenant-user::text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" constraint="email" />
             <x-tenant-user::input-error class="mt-2" :messages="$errors->get('email')" />
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())

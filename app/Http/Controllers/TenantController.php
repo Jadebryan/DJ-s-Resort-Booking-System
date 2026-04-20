@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use App\Support\InputRules;
 class TenantController extends Controller
 {
     /**
@@ -51,7 +52,7 @@ class TenantController extends Controller
         $domain = $this->normalizePrimaryDomainInput($request);
 
         $validated = $request->validate([
-            'tenant_name' => ['required', 'string', 'max:255'],
+            'tenant_name' => InputRules::title(255, true),
             'primary_domain' => [
                 'required',
                 'string',
@@ -59,7 +60,7 @@ class TenantController extends Controller
                 'regex:'.TenantDomain::STORED_DOMAIN_REGEX,
                 Rule::unique('tenant_domains', 'domain'),
             ],
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'plan_id' => ['nullable', 'exists:plans,id'],
             'subscription_months' => ['required', 'integer', 'min:1', 'max:12'],
@@ -139,7 +140,7 @@ class TenantController extends Controller
         $primary = $tenant->domains()->where('is_primary', true)->first();
 
         $validated = $request->validate([
-            'tenant_name' => ['required', 'string', 'max:255'],
+            'tenant_name' => InputRules::title(255, true),
             'primary_domain' => [
                 'required',
                 'string',
@@ -147,7 +148,7 @@ class TenantController extends Controller
                 'regex:'.TenantDomain::STORED_DOMAIN_REGEX,
                 Rule::unique('tenant_domains', 'domain')->ignore($primary?->id),
             ],
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email:rfc,dns', 'max:254'],
             'plan_id' => ['nullable', 'exists:plans,id'],
             'subscription_months' => ['required', 'integer', 'min:1', 'max:12'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
@@ -238,7 +239,7 @@ class TenantController extends Controller
 
     public function storeDomain(Request $request, Tenant $tenant): RedirectResponse
     {
-        $validated = $request->validate(['domain' => ['required', 'string', 'max:255']]);
+        $validated = $request->validate(['domain' => ['required', 'string', 'max:255', 'regex:'.TenantDomain::STORED_DOMAIN_REGEX]]);
         $domain = tenant_primary_domain_storage($validated['domain']);
         if (TenantDomain::where('domain', $domain)->exists()) {
             return redirect()->route('admin.tenants.edit', $tenant)->withErrors(['domain' => 'This domain is already in use.'])->withInput();

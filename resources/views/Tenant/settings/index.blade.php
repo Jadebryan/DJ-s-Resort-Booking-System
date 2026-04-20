@@ -11,6 +11,7 @@
         $hostDisplay = $dbInfo['host'] ? $dbInfo['host'] . ($dbInfo['port'] ? ':' . $dbInfo['port'] : '') : '—';
         $suFeedbackUpdateAvailable = __('A newer platform version is available. Your resort is on version [[CUR]]. The latest is [[LAT]]. Tenant admins can use “Apply update” to run database migrations for this resort.');
         $suFeedbackUpToDate = __('You are on the latest version ([[VER]]). No database migration is required right now.');
+        $latestRelease = $latestReleaseDetails ?? null;
     @endphp
 
     <div class="w-full min-w-0 max-w-7xl space-y-6 text-left">
@@ -38,12 +39,12 @@
                     </div>
                     <div class="rounded-lg border border-slate-200/80 bg-white px-3 py-2 text-left">
                         <dt class="text-xs font-medium text-slate-500">{{ __('Latest version') }}</dt>
-                        <dd class="mt-0.5 font-mono text-slate-900" id="su-latest">{{ $systemLatestVersion ?? config('app.version') }}</dd>
+                        <dd class="mt-0.5 font-mono text-slate-900" id="su-latest">{{ $systemLatestVersion ?? '1.0.0' }}</dd>
                     </div>
                     <div class="rounded-lg border border-slate-200/80 bg-white px-3 py-2 text-left">
                         <dt class="text-xs font-medium text-slate-500">{{ __('Status') }}</dt>
                         <dd class="mt-0.5 font-medium text-slate-900" id="su-status">
-                            @if(version_compare($tenantSchemaVersion ?? '1.0.0', $systemLatestVersion ?? config('app.version'), '<'))
+                            @if(version_compare($tenantSchemaVersion ?? '1.0.0', $systemLatestVersion ?? '1.0.0', '<'))
                                 <span class="text-amber-700">{{ __('Update available') }}</span>
                             @else
                                 <span class="text-teal-700">{{ __('Up to date') }}</span>
@@ -54,6 +55,64 @@
                 <div id="su-feedback" class="mt-4 hidden rounded-lg border px-4 py-3 text-left text-sm font-medium leading-relaxed" role="status" aria-live="polite"></div>
                 <p class="mt-2 hidden text-left text-xs text-red-600" id="su-error" role="alert"></p>
                 <p class="mt-2 hidden text-left text-xs text-slate-600" id="su-notice" role="status"></p>
+
+                @if(is_array($latestRelease) && ($latestRelease['source'] ?? '') === 'github' && ((string) ($latestRelease['body'] ?? '') !== '' || !empty($latestRelease['assets'] ?? [])))
+                    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        @if((string) ($latestRelease['body'] ?? '') !== '')
+                            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Release notes') }}</p>
+                                        <p class="mt-0.5 text-sm font-semibold text-slate-900 truncate">
+                                            {{ $latestRelease['release_name'] ?? ($latestRelease['tag_name'] ?? __('Latest')) }}
+                                        </p>
+                                    </div>
+                                    @if(!empty($latestRelease['html_url']))
+                                        <a href="{{ $latestRelease['html_url'] }}" target="_blank" rel="noopener noreferrer"
+                                           class="shrink-0 inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50">
+                                            {{ __('View') }}
+                                        </a>
+                                    @endif
+                                </div>
+                                <div class="mt-2 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap">{{ $latestRelease['body'] }}</div>
+                            </div>
+                        @endif
+
+                        @if(!empty($latestRelease['assets'] ?? []))
+                            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ __('Downloads') }}</p>
+                                <p class="mt-0.5 text-sm font-semibold text-slate-900">{{ __('Release files') }}</p>
+                                <ul class="mt-2 space-y-1.5">
+                                    @foreach(($latestRelease['assets'] ?? []) as $asset)
+                                        <li class="flex items-center justify-between gap-3 rounded-md border border-slate-100 bg-slate-50/60 px-3 py-2">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-xs font-semibold text-slate-800">{{ $asset['name'] ?? __('Asset') }}</p>
+                                                <p class="mt-0.5 text-[11px] text-slate-500">
+                                                    @php($bytes = (int) ($asset['size'] ?? 0))
+                                                    @if($bytes > 0)
+                                                        {{ round($bytes / 1048576, 2) }} MB
+                                                    @else
+                                                        —
+                                                    @endif
+                                                    @if(!empty($asset['content_type']))
+                                                        · {{ $asset['content_type'] }}
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            @if(!empty($asset['download_url']))
+                                                <a href="{{ $asset['download_url'] }}" target="_blank" rel="noopener noreferrer"
+                                                   class="shrink-0 inline-flex items-center rounded-md bg-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-700">
+                                                    {{ __('Download') }}
+                                                </a>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <p class="mt-2 text-[11px] text-slate-500">{{ __('Tip: For private repos, you may need to be signed in to GitHub to download assets in the browser.') }}</p>
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </section>
 
             <script>
@@ -189,7 +248,7 @@
                     });
                 }
 
-                @if(auth('tenant')->user()->role === 'admin' && version_compare($tenantSchemaVersion ?? '1.0.0', $systemLatestVersion ?? config('app.version'), '<'))
+                @if(auth('tenant')->user()->role === 'admin' && version_compare($tenantSchemaVersion ?? '1.0.0', $systemLatestVersion ?? '1.0.0', '<'))
                 setApplyEnabled(true);
                 @endif
             })();

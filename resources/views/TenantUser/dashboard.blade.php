@@ -13,6 +13,7 @@
         'image_url' => $r->image_path ? asset('storage/' . $r->image_path) : asset('images/background.jpg'),
     ])->values()->all();
     $storeUrl = tenant_url('book');
+    $guestBookingsCalUrl = tenant_url('user/dashboard').'#booking-calendar';
 @endphp
 <x-tenant-user::app-layout>
     <x-slot name="header">
@@ -26,26 +27,55 @@
         browseModalOpen: false,
         bookModalOpen: false,
         selectedRoom: null,
+        bookCheckIn: '',
+        bookCheckOut: '',
         roomsForBooking: @js($roomsForBooking),
         openBookModal(roomId) {
             this.selectedRoom = this.roomsForBooking.find(r => r.id == roomId) || null;
             this.bookModalOpen = !!this.selectedRoom;
             this.browseModalOpen = false;
+            this.bookCheckIn = '';
+            this.bookCheckOut = '';
         },
         closeBookModal() {
             this.bookModalOpen = false;
             this.selectedRoom = null;
+            this.bookCheckIn = '';
+            this.bookCheckOut = '';
         }
-    }" @keydown.escape.window="bookModalOpen = false; browseModalOpen = false; selectedRoom = null">
+        ,
+        nights() {
+            if (!this.bookCheckIn || !this.bookCheckOut) return 0;
+            const a = new Date(this.bookCheckIn);
+            const b = new Date(this.bookCheckOut);
+            if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+            const diff = Math.ceil((b.getTime() - a.getTime()) / 86400000);
+            return Math.max(0, diff);
+        },
+        payable() {
+            const n = this.nights();
+            const rate = Number(this.selectedRoom?.price_per_night || 0);
+            if (!rate || n <= 0) return 0;
+            return rate * n;
+        },
+        money(v) {
+            try {
+                return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            } catch (e) {
+                return String(v || 0);
+            }
+        }
+    }" @keydown.escape.window="bookModalOpen = false; browseModalOpen = false; selectedRoom = null"
+       @open-browse.window="browseModalOpen = true">
         <p class="text-sm text-gray-600">
             {{ __('Welcome back,') }} <span class="font-semibold text-gray-900">{{ auth('regular_user')->user()->name }}</span>
         </p>
 
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <x-stat-kpi-toggle storage-key="mtrbs.tenantUser.dashboard.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" accent="teal">
             <div class="rounded-xl border border-violet-100 bg-violet-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-violet-800/90">{{ __('Rooms to book') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-violet-950">{{ $availableRoomsCount ?? ($rooms->count()) }}</p>
-                <button type="button" @click="browseModalOpen = true" class="mt-1 text-left text-xs font-semibold text-violet-800 hover:text-violet-950">{{ __('Browse →') }}</button>
+                <button type="button" @click="$dispatch('open-browse')" class="mt-1 text-left text-xs font-semibold text-violet-800 hover:text-violet-950">{{ __('Browse →') }}</button>
             </div>
             <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-indigo-800/90">{{ __('Total bookings') }}</p>
@@ -67,11 +97,13 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-800">{{ $cancelledBookings ?? 0 }}</p>
                 <a href="{{ tenant_url('user/bookings') }}" class="mt-1 inline-flex text-xs font-semibold text-gray-700 hover:text-gray-900">{{ __('History →') }}</a>
             </div>
-        </div>
+        </x-stat-kpi-toggle>
+
+        @include('TenantUser.partials.guest-dashboard-calendar')
 
         <section>
             <h2 class="mb-3 text-sm font-semibold text-gray-900">{{ __('Quick actions') }}</h2>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <a href="{{ tenant_url('user/bookings') }}"
                    class="group flex flex-col rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-md min-w-0">
                     <div class="flex items-center gap-3 min-w-0">
@@ -80,10 +112,24 @@
                         </span>
                         <div class="min-w-0">
                             <h3 class="font-semibold text-gray-800 group-hover:text-teal-700 truncate">{{ __('My bookings') }}</h3>
-                            <p class="text-xs text-gray-500 truncate">{{ __('View and manage reservations') }}</p>
+                            <p class="text-xs text-gray-500 truncate">{{ __('List, pay, and edit stays') }}</p>
                         </div>
                     </div>
                     <p class="mt-3 text-xs text-gray-600">{{ $totalBookings ?? 0 }} {{ __('booking(s)') }}</p>
+                </a>
+
+                <a href="{{ $guestBookingsCalUrl }}"
+                   class="group flex flex-col rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm transition hover:border-teal-200 hover:shadow-md min-w-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-100 text-teal-600 group-hover:bg-teal-500 group-hover:text-white transition">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                        </span>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold text-gray-800 group-hover:text-teal-700 truncate">{{ __('Booking calendar') }}</h3>
+                            <p class="text-xs text-gray-500 truncate">{{ __('Month view of your stays') }}</p>
+                        </div>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-600">{{ __('This month at a glance') }}</p>
                 </a>
 
                 <button type="button" @click="browseModalOpen = true"
@@ -121,7 +167,7 @@
              x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
              x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
              class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-            <div @click="browseModalOpen = false" class="fixed inset-0 bg-black/50"></div>
+            <div @click="browseModalOpen = false" class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm"></div>
             <div x-show="browseModalOpen" @click.stop
                  x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                  class="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
@@ -171,7 +217,7 @@
              x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
              x-transition:leave="ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
              class="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-            <div @click="closeBookModal()" class="fixed inset-0 bg-black/50"></div>
+            <div @click="closeBookModal()" class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm"></div>
             <div x-show="bookModalOpen && selectedRoom" @click.stop
                  x-transition:enter="ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
                  class="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
@@ -206,20 +252,35 @@
                         @csrf
                         <input type="hidden" name="room_id" :value="selectedRoom ? selectedRoom.id : ''">
 
-                        <div class="grid grid-cols-2 gap-4" x-data="{}">
+                        <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label for="book_check_in" class="block text-sm font-medium text-gray-900 mb-1">Check-in</label>
                                 <input type="date" id="book_check_in" name="check_in" required min="{{ date('Y-m-d') }}"
                                        x-ref="bookCheckIn"
-                                       @change="let d = $event.target.value; if (d && $refs.bookCheckOut) { let next = new Date(d); next.setDate(next.getDate() + 1); $refs.bookCheckOut.min = next.toISOString().slice(0,10); if ($refs.bookCheckOut.value && $refs.bookCheckOut.value < $refs.bookCheckOut.min) $refs.bookCheckOut.value = '' }"
+                                       x-model="bookCheckIn"
+                                       @change="let d = $event.target.value; bookCheckIn = d; if (d && $refs.bookCheckOut) { let next = new Date(d); next.setDate(next.getDate() + 1); $refs.bookCheckOut.min = next.toISOString().slice(0,10); if ($refs.bookCheckOut.value && $refs.bookCheckOut.value < $refs.bookCheckOut.min) { $refs.bookCheckOut.value = ''; bookCheckOut = ''; } }"
                                        class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900">
                                 </div>
                             <div>
                                 <label for="book_check_out" class="block text-sm font-medium text-gray-900 mb-1">Check-out</label>
                                 <input type="date" id="book_check_out" name="check_out" required
                                        x-ref="bookCheckOut"
+                                       x-model="bookCheckOut"
+                                       @input="bookCheckOut = $event.target.value"
                                        class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900">
                             </div>
+                        </div>
+
+                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-sm font-semibold text-gray-900">{{ __('Amount payable') }}</p>
+                                <p class="text-sm font-bold text-teal-700 tabular-nums">
+                                    ₱<span x-text="money(payable())"></span>
+                                </p>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-600">
+                                <span x-text="nights() ? (nights() + ' night(s) × ₱' + money(selectedRoom ? selectedRoom.price_per_night : 0) + '/night') : '{{ __('Select your dates to calculate the total.') }}'"></span>
+                            </p>
                         </div>
 
                         <p class="text-sm text-gray-600">Booking as <strong>{{ auth('regular_user')->user()->name }}</strong> ({{ auth('regular_user')->user()->email }})</p>

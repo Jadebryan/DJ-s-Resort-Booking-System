@@ -40,7 +40,8 @@ class TenantProvisioner
 
         $passwordHash = $request->admin_password;
 
-        $months = $request->subscriptionMonths();
+        $days = $request->subscriptionLengthDays();
+        $monthsForRecord = max(1, (int) ceil($days / TenantRegistrationRequest::BILLING_DAYS_PER_MONTH));
         $planId = $request->plan_id ?? PlatformSetting::instance()->default_plan_id;
         $tenant = Tenant::create([
             'tenant_name' => $request->tenant_name,
@@ -48,8 +49,8 @@ class TenantProvisioner
             'slug' => $internalSlug,
             'database_name' => $tenantDatabaseName,
             'plan_id' => $planId,
-            'subscription_ends_at' => now()->addDays(TenantRegistrationRequest::BILLING_DAYS_PER_MONTH * $months),
-            'subscription_months' => $months,
+            'subscription_ends_at' => now()->addDays($days),
+            'subscription_months' => $monthsForRecord,
             'email' => $request->admin_email,
             'password' => $passwordHash,
         ]);

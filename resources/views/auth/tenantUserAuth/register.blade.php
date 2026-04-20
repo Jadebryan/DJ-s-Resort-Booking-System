@@ -31,6 +31,7 @@
                     required
                     autofocus
                     autocomplete="name"
+                    constraint="personName"
                 />
                 <x-tenant-user::input-error :messages="$errors->get('name')" class="mt-1" />
             </div>
@@ -45,6 +46,7 @@
                     :value="old('email')"
                     required
                     autocomplete="username"
+                    constraint="email"
                 />
                 <x-tenant-user::input-error :messages="$errors->get('email')" class="mt-1" />
             </div>

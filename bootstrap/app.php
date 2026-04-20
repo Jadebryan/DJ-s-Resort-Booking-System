@@ -18,11 +18,18 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetTenantDatabase::class,
         ]);
         $middleware->web(append: [
+            \App\Http\Middleware\SecurityHeaders::class,
+            \App\Http\Middleware\DisconnectTenantConnection::class,
             \App\Http\Middleware\EnsureActionToast::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/paymongo',
         ]);
         
         $middleware->alias([
             'auth' => \App\Http\Middleware\Authenticate::class,
+            'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
             'tenant.staff.rbac' => \App\Http\Middleware\EnsureTenantStaffRbac::class,
             'tenant.customer.rbac' => \App\Http\Middleware\EnsureTenantCustomerRbac::class,
         ]);

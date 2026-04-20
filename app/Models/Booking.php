@@ -26,6 +26,7 @@ class Booking extends Model
         'payer_full_name',
         'payer_gcash_no',
         'payer_ref_no',
+        'paymongo_payment_intent_id',
         'payment_type',
         'is_fully_paid',
         'amount_paid',

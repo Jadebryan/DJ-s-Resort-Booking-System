@@ -11,12 +11,15 @@ use App\Http\Controllers\Admin\TenantRegistrationController;
 // routes/web.php
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\DebugController;
+use App\Http\Controllers\Webhooks\PayMongoWebhookController;
 
 /*
  * Tenant host routes must register before any host-agnostic routes: Laravel matches
  * the first compatible route, and routes without Route::domain() accept every Host.
  */
 require __DIR__.'/usingDomain.php';
+
+Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handle'])->name('webhooks.paymongo');
 
 // Public: browse resorts (tenants) for landing page "Browse demo tenants"
 Route::get('/resorts', [TenantController::class, 'publicIndex'])->name('tenants.index');
@@ -141,9 +144,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
 
 // Generic tenant selector routes (show full login/register forms)
-Route::get('/tenant/login', function () {
-    return view('auth.tenantAuth.login');
-})->name('tenant.select.login');
+Route::get('/tenant/login', [TenantLoginController::class, 'create'])->name('tenant.select.login');
 
 Route::post('/tenant/login', [TenantLoginController::class, 'store']);
 

@@ -53,6 +53,8 @@ return [
         'enabled' => env('PAYMONGO_ENABLED', false),
         'secret' => env('PAYMONGO_SECRET_KEY'),
         'public' => env('PAYMONGO_PUBLIC_KEY'),
+        /** Dashboard → Webhooks → show secret; used to verify Paymongo-Signature */
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
     ],
 
 ];

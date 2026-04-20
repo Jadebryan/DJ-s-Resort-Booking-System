@@ -12,8 +12,8 @@
 </head>
 <body class="min-h-screen overflow-x-hidden font-sans text-slate-900 antialiased">
     <x-auth-backdrop>
-        <div class="w-full max-w-md min-w-0">
-            <div class="flex justify-center mb-6">
+        <div class="w-full max-w-[360px] min-w-0">
+            <div class="mb-3 flex justify-center">
                 <div class="flex items-center gap-2.5">
                     <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-sky-400 via-cyan-400 to-emerald-400 text-slate-950 shadow-md shadow-sky-400/30">
                         <span class="text-sm font-bold tracking-tight">DJ</span>
@@ -25,21 +25,13 @@
                 </div>
             </div>
 
-            <div class="w-full overflow-hidden rounded-3xl border border-slate-200/80 bg-white px-8 py-9 shadow-xl shadow-slate-200/50 sm:px-10 sm:py-10">
-                <div class="mb-6 text-center">
-                    <h1 class="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">Sign in</h1>
-                    <p class="mt-1 text-sm text-slate-600">Tenants, billing, and platform settings.</p>
+            <div class="w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-white px-5 py-5 shadow-lg shadow-slate-200/60 sm:px-6 sm:py-6">
+                <div class="mb-3 text-center">
+                    <h1 class="text-base font-semibold tracking-tight text-slate-900 sm:text-lg">Sign in</h1>
+                    <p class="mt-1 text-[11px] text-slate-600 sm:text-xs">Tenants, billing, and platform settings.</p>
                 </div>
 
-                @if ($errors->any())
-                    <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-                        @foreach ($errors->all() as $error)
-                            <p>{{ $error }}</p>
-                        @endforeach
-                    </div>
-                @endif
-
-                <form method="POST" action="{{ route('admin.login') }}" class="space-y-5">
+                <form method="POST" action="{{ route('admin.login') }}" class="space-y-3">
                     @csrf
 
                     <div>
@@ -52,7 +44,8 @@
                             required
                             autofocus
                             autocomplete="username"
-                            class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                            {{ \App\Support\InputHtmlAttributes::email() }}
+                            class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                     </div>
 
@@ -65,7 +58,7 @@
                                 name="password"
                                 required
                                 autocomplete="current-password"
-                                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 pr-12 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-12 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                             />
                             <button
                                 type="button"
@@ -102,17 +95,17 @@
 
                     <button
                         type="submit"
-                        class="flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
+                        class="flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"
                     >
                         {{ __('Continue to dashboard') }}
                     </button>
 
-                    <p class="mt-4 text-center">
+                    <p class="mt-3 text-center">
                         <a href="{{ route('admin.password.request') }}" class="text-sm font-medium text-sky-700 hover:text-sky-900">{{ __('Forgot password?') }}</a>
                     </p>
                 </form>
 
-                <p class="mt-8 text-center text-xs text-slate-400">
+                <p class="mt-5 text-center text-[11px] text-slate-400">
                     {{ __('Restricted access. All sign-ins may be logged.') }}
                 </p>
             </div>

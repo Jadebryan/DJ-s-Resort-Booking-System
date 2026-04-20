@@ -7,12 +7,13 @@ namespace App\Http\Controllers\Tenant;
 use App\Http\Controllers\Controller;
 use App\Jobs\UpdateTenantJob;
 use App\Models\Tenant;
+use App\Services\PlatformReleaseVersionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TenantSystemUpdateController extends Controller
 {
-    public function checkUpdate(Request $request): JsonResponse
+    public function checkUpdate(Request $request, PlatformReleaseVersionService $releases): JsonResponse
     {
         $landlord = current_tenant();
         if (! $landlord instanceof Tenant) {
@@ -20,7 +21,7 @@ class TenantSystemUpdateController extends Controller
         }
 
         $landlord = Tenant::query()->whereKey($landlord->id)->firstOrFail();
-        $latest = config('app.version');
+        $latest = $releases->latestSchemaVersion();
         $current = $landlord->version ?? '1.0.0';
 
         return response()->json([
@@ -30,7 +31,7 @@ class TenantSystemUpdateController extends Controller
         ]);
     }
 
-    public function applyUpdate(Request $request): JsonResponse
+    public function applyUpdate(Request $request, PlatformReleaseVersionService $releases): JsonResponse
     {
         $staff = $request->user('tenant');
         if (! $staff || $staff->role !== 'admin') {
@@ -42,6 +43,8 @@ class TenantSystemUpdateController extends Controller
             return response()->json(['message' => 'Tenant not resolved.'], 404);
         }
 
+        $latest = $releases->latestSchemaVersion();
+
         if (config('queue.default') === 'sync') {
             UpdateTenantJob::dispatchSync($landlord->id);
             $landlord->refresh();
@@ -49,8 +52,8 @@ class TenantSystemUpdateController extends Controller
             return response()->json([
                 'queued' => false,
                 'current_version' => $landlord->version ?? '1.0.0',
-                'latest_version' => config('app.version'),
-                'update_available' => version_compare($landlord->version ?? '1.0.0', config('app.version'), '<'),
+                'latest_version' => $latest,
+                'update_available' => version_compare($landlord->version ?? '1.0.0', $latest, '<'),
             ]);
         }
 

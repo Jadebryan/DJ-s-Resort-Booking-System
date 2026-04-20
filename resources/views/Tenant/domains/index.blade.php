@@ -39,21 +39,21 @@
                     <table class="min-w-[560px] w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50/80">
                             <tr>
-                                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Domain</th>
-                                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">Primary</th>
-                                <th class="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ __('Domain') }}</th>
+                                <th class="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">{{ __('Primary') }}</th>
+                                <th class="px-3 py-2 text-right text-xs font-medium uppercase text-gray-500">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
                             @foreach($domains as $d)
                                 <tr>
                                     <td class="px-3 py-2 font-medium text-gray-900">{{ $d->domain }}</td>
-                                    <td class="px-3 py-2">{{ $d->is_primary ? 'Yes' : '—' }}</td>
+                                    <td class="px-3 py-2">{{ $d->is_primary ? __('Yes') : '—' }}</td>
                                     <td class="px-3 py-2 text-right space-x-2">
                                         @if(!$d->is_primary)
                                             <form action="{{ tenant_url('domains/' . $d->id . '/primary') }}" method="POST" class="inline">
                                                 @csrf
-                                                <button type="submit" class="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-100">Set primary</button>
+                                                <button type="submit" class="rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-700 transition hover:bg-teal-100">{{ __('Set primary') }}</button>
                                             </form>
                                         @endif
                                         <x-confirm-form-button

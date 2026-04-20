@@ -8,7 +8,7 @@
 
     <div class="w-full min-w-0 max-w-7xl space-y-5 -mt-1 text-left"
          x-data="{ dashFilter: '' }">
-        <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.dashboard.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5" accent="indigo">
             <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-indigo-800/90">{{ __('Total tenants') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-indigo-950">{{ $tenantCount ?? '—' }}</p>
@@ -37,7 +37,7 @@
                     <a href="{{ route('admin.reports') }}" class="rounded-lg bg-white/80 px-2 py-1 text-[11px] font-medium text-emerald-900 ring-1 ring-emerald-200/80 hover:bg-white">{{ __('Reports') }}</a>
                 </div>
             </div>
-        </section>
+        </x-stat-kpi-toggle>
 
         <section class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)]">
             <div class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">

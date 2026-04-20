@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth\tenantUserAuthController;
 use App\Http\Controllers\Controller;
 use App\Models\TenantDomain;
 use App\Models\TenantUserModel\RegularUser;
+use App\Support\InputRules;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -38,8 +39,8 @@ class RegisteredUserController extends Controller
         }
 
         $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'name' => InputRules::personName(255, true),
+            'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 

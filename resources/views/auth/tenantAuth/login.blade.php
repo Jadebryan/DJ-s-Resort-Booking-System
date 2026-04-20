@@ -21,7 +21,7 @@
     </div>
 
     @if($onTenantDomain)
-        <x-form-with-busy method="POST" action="{{ url('/login') }}" class="space-y-3" :overlay="false" busy-message="{{ __('Signing in…') }}">
+        <x-form-with-busy method="POST" action="{{ tenant_url('login') }}" class="space-y-3" :overlay="false" busy-message="{{ __('Signing in…') }}">
             @csrf
 
             <div>
@@ -35,6 +35,7 @@
                     required
                     autofocus
                     autocomplete="username"
+                    constraint="email"
                 />
                 <x-tenant::input-error :messages="$errors->get('email')" class="mt-1" />
             </div>
@@ -111,6 +112,7 @@
                     required
                     autofocus
                     placeholder="e.g. sunrise-resort.example.com"
+                    constraint="primaryDomain"
                 />
                 <x-tenant::input-error :messages="$errors->get('tenant_domain')" class="mt-1" />
                 <p class="mt-1 text-[10px] leading-snug text-slate-500 sm:text-[11px]">{{ __('Use the same hostname guests see in the browser (no https:// needed).') }}</p>

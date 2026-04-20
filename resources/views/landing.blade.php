@@ -3,10 +3,11 @@
 @section('title', 'DJs Resort · Effortless Resort Booking Platform')
 
 @section('body')
-<!-- NAVBAR -->
-<header class="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
+<!-- NAVBAR — floating translucent bar -->
+<div class="sticky top-0 z-40 pt-3 sm:pt-4 px-4 sm:px-6 lg:px-8 pointer-events-none">
+    <header class="pointer-events-auto max-w-7xl mx-auto rounded-2xl border border-white/50 bg-white/40 backdrop-blur-xl shadow-lg shadow-slate-900/[0.07] ring-1 ring-slate-900/[0.04]">
+        <div class="px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14 sm:h-16">
             <!-- Logo -->
             <div class="flex items-center gap-2">
                 <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-sky-400 via-cyan-400 to-emerald-400 flex items-center justify-center shadow-lg shadow-sky-500/40">
@@ -36,9 +37,10 @@
                     Start free as a resort
                 </a>
             </div>
+            </div>
         </div>
-    </div>
-</header>
+    </header>
+</div>
 
 <!-- HERO -->
 <section class="relative overflow-hidden bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100">

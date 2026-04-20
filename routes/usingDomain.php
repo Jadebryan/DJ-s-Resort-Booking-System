@@ -26,8 +26,20 @@ Route::domain('{tenant_domain}')
                 abort(404, 'Tenant not found');
             }
             $rooms = \App\Models\Room::where('is_available', true)->with('images')->orderBy('name')->get();
+            $bookedRoomIds = \App\Models\Booking::query()
+                ->whereIn('status', ['pending', 'confirmed'])
+                ->where('check_out', '>=', now()->toDateString())
+                ->pluck('room_id')
+                ->map(fn ($v) => (int) $v)
+                ->unique()
+                ->values()
+                ->all();
 
-            return view('Tenant.TenantLandingPage', ['tenant' => $domain->tenant, 'rooms' => $rooms]);
+            return view('Tenant.TenantLandingPage', [
+                'tenant' => $domain->tenant,
+                'rooms' => $rooms,
+                'bookedRoomIds' => $bookedRoomIds,
+            ]);
         })->name('tenant.landing');
 
         Route::middleware('guest')->group(function () {
@@ -65,6 +77,11 @@ Route::domain('{tenant_domain}')
         Route::get('/book/{room}', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'show'])->name('tenant.book.show')->where('room', '[0-9]+');
         Route::post('/book', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'store'])->name('tenant.book.store');
 
+        Route::get('/bookings/{booking}/receipt/guest', [\App\Http\Controllers\Tenant\BookingController::class, 'guestReceipt'])
+            ->middleware('signed')
+            ->name('tenant.booking.receipt.guest')
+            ->where('booking', '[0-9]+');
+
         Route::middleware(['auth:tenant', 'tenant.staff.rbac'])->group(function () {
             Route::get('/api/tenant/check-update', [TenantSystemUpdateController::class, 'checkUpdate'])->name('tenant.api.check-update');
             Route::post('/api/tenant/apply-update', [TenantSystemUpdateController::class, 'applyUpdate'])->name('tenant.api.apply-update');
@@ -73,16 +90,19 @@ Route::domain('{tenant_domain}')
             Route::get('/rooms', [\App\Http\Controllers\Tenant\RoomController::class, 'index'])->name('tenant.rooms.index');
             Route::get('/rooms/create', [\App\Http\Controllers\Tenant\RoomController::class, 'create'])->name('tenant.rooms.create');
             Route::post('/rooms', [\App\Http\Controllers\Tenant\RoomController::class, 'store'])->name('tenant.rooms.store');
-            Route::get('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'edit'])->name('tenant.rooms.edit');
-            Route::patch('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'update'])->name('tenant.rooms.update');
-            Route::delete('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'destroy'])->name('tenant.rooms.destroy');
+            Route::get('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'edit'])->name('tenant.rooms.edit')->where('room', '[0-9]+');
+            Route::patch('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'update'])->name('tenant.rooms.update')->where('room', '[0-9]+');
+            Route::delete('/rooms/{room}', [\App\Http\Controllers\Tenant\RoomController::class, 'destroy'])->name('tenant.rooms.destroy')->where('room', '[0-9]+');
             Route::get('/branding', [\App\Http\Controllers\Tenant\BrandingController::class, 'edit'])->name('tenant.branding.edit');
             Route::patch('/branding', [\App\Http\Controllers\Tenant\BrandingController::class, 'update'])->name('tenant.branding.update');
             Route::get('/bookings', [\App\Http\Controllers\Tenant\BookingController::class, 'index'])->name('tenant.bookings.index');
+            Route::get('/bookings/{booking}/receipt', [\App\Http\Controllers\Tenant\BookingController::class, 'receipt'])->name('tenant.bookings.receipt')->where('booking', '[0-9]+');
             Route::get('/bookings/calendar', [\App\Http\Controllers\Tenant\BookingController::class, 'calendar'])->name('tenant.bookings.calendar');
             Route::post('/bookings/{booking}/confirm', [\App\Http\Controllers\Tenant\BookingController::class, 'confirm'])->name('tenant.bookings.confirm');
             Route::post('/bookings/{booking}/cancel', [\App\Http\Controllers\Tenant\BookingController::class, 'cancel'])->name('tenant.bookings.cancel');
+            Route::put('/bookings/{booking}', [\App\Http\Controllers\Tenant\BookingController::class, 'update'])->name('tenant.bookings.update')->where('booking', '[0-9]+');
             Route::get('/reports', [\App\Http\Controllers\Tenant\ReportController::class, 'index'])->name('tenant.reports.index');
+            Route::get('/reports/advanced', [\App\Http\Controllers\Tenant\ReportController::class, 'advanced'])->name('tenant.reports.advanced');
             Route::get('/reports/analytics', [\App\Http\Controllers\Tenant\ReportController::class, 'analytics'])->name('tenant.reports.analytics');
             Route::get('/reports/export/csv', [\App\Http\Controllers\Tenant\ReportController::class, 'exportCsv'])->name('tenant.reports.export.csv');
             Route::get('/reports/export/pdf', [\App\Http\Controllers\Tenant\ReportController::class, 'exportPdf'])->name('tenant.reports.export.pdf');
@@ -91,6 +111,8 @@ Route::domain('{tenant_domain}')
             Route::get('/payment', [\App\Http\Controllers\Tenant\PaymentController::class, 'portal'])->name('tenant.payment.portal');
             Route::get('/payment/upgrade-quote', [\App\Http\Controllers\Tenant\PaymentController::class, 'upgradeQuote'])->name('tenant.payment.upgrade-quote');
             Route::post('/payment/upgrade-request', [\App\Http\Controllers\Tenant\PaymentController::class, 'submitUpgradeRequest'])->name('tenant.payment.upgrade-request');
+            Route::get('/support', [\App\Http\Controllers\Tenant\SupportController::class, 'index'])->name('tenant.support.index');
+            Route::post('/support/tickets', [\App\Http\Controllers\Tenant\SupportController::class, 'store'])->name('tenant.support.tickets.store');
             Route::get('/domains', [\App\Http\Controllers\Tenant\DomainController::class, 'index'])->name('tenant.domains.index');
             Route::post('/domains', [\App\Http\Controllers\Tenant\DomainController::class, 'store'])->name('tenant.domains.store');
             Route::delete('/domains/{domain}', [\App\Http\Controllers\Tenant\DomainController::class, 'destroy'])->name('tenant.domains.destroy');
@@ -122,6 +144,8 @@ Route::domain('{tenant_domain}')
             Route::get('/user/notifications/feed', [\App\Http\Controllers\TenantUser\NotificationController::class, 'feed'])->name('tenant.user.notifications.feed');
             Route::get('/user/bookings', [\App\Http\Controllers\TenantUser\BookingController::class, 'index'])->name('tenant.user.bookings.index');
             Route::put('/user/bookings/{booking}', [\App\Http\Controllers\TenantUser\BookingController::class, 'update'])->name('tenant.user.bookings.update');
+            Route::post('/user/bookings/{booking}/pay-gcash', [\App\Http\Controllers\TenantUser\PayMongoBookingPaymentController::class, 'start'])->name('tenant.user.bookings.pay-gcash')->where('booking', '[0-9]+');
+            Route::get('/user/bookings/gcash-return', [\App\Http\Controllers\TenantUser\PayMongoBookingPaymentController::class, 'returnPage'])->name('tenant.user.bookings.gcash-return');
             Route::post('/user/bookings/{booking}/upload-proof', [\App\Http\Controllers\TenantUser\BookingController::class, 'uploadProof'])->name('tenant.user.bookings.upload-proof');
             Route::get('/user/profile', [\App\Http\Controllers\tenantUserControlllers\ProfileController::class, 'edit'])->name('tenant.user.profile.edit');
             Route::patch('/user/profile', [\App\Http\Controllers\tenantUserControlllers\ProfileController::class, 'update'])->name('tenant.user.profile.update');

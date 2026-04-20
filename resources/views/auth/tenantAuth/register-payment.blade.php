@@ -1,15 +1,4 @@
 <x-tenant::guest-layout container-class="max-w-xl" :compact="true" :dense="true">
-    @if (session('error'))
-        <div class="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-800" role="alert">
-            {{ session('error') }}
-        </div>
-    @endif
-    @if (session('status'))
-        <div class="mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] text-emerald-800" role="status">
-            {{ session('status') }}
-        </div>
-    @endif
-
     <div class="grid gap-3 md:grid-cols-2 md:gap-4 md:items-start">
         <div class="text-center md:text-left">
             <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-600">
@@ -30,8 +19,14 @@
                         <dd class="font-medium tabular-nums text-slate-900">₱{{ number_format((float) ($registration->plan?->price_monthly ?? 0), 2) }}</dd>
                     </div>
                     <div class="flex justify-between gap-3">
-                        <dt class="text-slate-600">{{ __('Months') }}</dt>
-                        <dd class="font-medium tabular-nums text-slate-900">{{ $registration->subscriptionMonths() }}</dd>
+                        <dt class="text-slate-600">{{ $registration->usesCustomSubscriptionDays() ? __('Length') : __('Months') }}</dt>
+                        <dd class="font-medium tabular-nums text-slate-900">
+                            @if($registration->usesCustomSubscriptionDays())
+                                {{ $registration->subscriptionLengthDays() }} {{ __('days') }}
+                            @else
+                                {{ $registration->subscriptionMonths() }}
+                            @endif
+                        </dd>
                     </div>
                     <div class="flex justify-between gap-3 border-t border-slate-200 pt-1 text-[11px] font-semibold text-slate-900 sm:text-xs">
                         <dt>{{ __('Total due') }}</dt>
@@ -69,6 +64,7 @@
                 <div>
                     <label for="payment_reference" class="block text-[10px] font-medium text-slate-800">{{ __('Reference / transaction ID') }}</label>
                     <input id="payment_reference" name="payment_reference" value="{{ old('payment_reference') }}" required
+                           {{ \App\Support\InputHtmlAttributes::paymentReference(255) }}
                            class="mt-0.5 block w-full min-h-[2.125rem] rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 sm:text-xs"
                            placeholder="e.g. 0917… or bank ref #"/>
                     @error('payment_reference')<p class="mt-0.5 text-[10px] text-red-600">{{ $message }}</p>@enderror
@@ -76,6 +72,7 @@
                 <div>
                     <label for="payment_notes" class="block text-[10px] font-medium text-slate-800">{{ __('Notes (optional)') }}</label>
                     <textarea id="payment_notes" name="payment_notes" rows="2"
+                              {{ \App\Support\InputHtmlAttributes::textarea(1500) }}
                               class="mt-0.5 block w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 sm:text-xs"
                               placeholder="{{ __('Sender name, time of payment, etc.') }}">{{ old('payment_notes') }}</textarea>
                     @error('payment_notes')<p class="mt-0.5 text-[10px] text-red-600">{{ $message }}</p>@enderror

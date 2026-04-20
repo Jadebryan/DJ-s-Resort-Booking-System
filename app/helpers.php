@@ -71,15 +71,21 @@ if (! function_exists('tenant_path_prefix')) {
 if (! function_exists('tenant_url')) {
     /**
      * Absolute URL on the current tenant host for a path like "bookings" or "/rooms/create".
+     *
+     * Uses the incoming request's scheme + host (incl. non-default port) so forms and links stay
+     * on the tenant hostname. Laravel's url() alone is rooted at APP_URL and would send users
+     * to the central host when APP_URL does not match the tenant domain.
      */
     function tenant_url(string $path = '/'): string
     {
         $path = trim($path, '/');
-        if ($path === '') {
-            return url('/');
+        $relative = $path === '' ? '/' : '/'.$path;
+
+        if (! app()->runningInConsole() && request()) {
+            return rtrim(request()->getSchemeAndHttpHost(), '/').$relative;
         }
 
-        return url('/'.$path);
+        return url($relative);
     }
 }
 

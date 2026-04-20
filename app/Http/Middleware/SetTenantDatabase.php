@@ -2,11 +2,13 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
 use App\Models\TenantDomain;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
+use Symfony\Component\HttpFoundation\Response;
 
 class SetTenantDatabase
 {
@@ -30,12 +32,21 @@ class SetTenantDatabase
 
         $tenant = $mappedDomain->tenant;
         if (! $tenant->is_active) {
+            if ($this->allowsTenantAccessWhileInactive($request)) {
+                return $this->continueWithTenantContext($request, $next, $tenant);
+            }
+
             return response()->view('Tenant.inactive', [
                 'tenant' => $tenant,
                 'host' => $request->getHost(),
             ], 403);
         }
 
+        return $this->continueWithTenantContext($request, $next, $tenant);
+    }
+
+    private function continueWithTenantContext(Request $request, Closure $next, Tenant $tenant): Response
+    {
         $this->applyTenantConnection($tenant->database_name);
 
         $request->attributes->set('tenant', $tenant);
@@ -50,6 +61,41 @@ class SetTenantDatabase
         URL::defaults(['tenant_domain' => $request->getHost()]);
 
         return $next($request);
+    }
+
+    /**
+     * When a tenant is suspended (is_active = false), still allow staff to sign in and use the
+     * payment portal so they can submit a renewal for superadmin review.
+     */
+    private function allowsTenantAccessWhileInactive(Request $request): bool
+    {
+        $path = '/' . ltrim($request->path(), '/');
+
+        if ($this->isTenantHostAssetPath($path)) {
+            return true;
+        }
+
+        $exact = ['/login', '/logout', '/forgot-password', '/payment'];
+        if (in_array($path, $exact, true)) {
+            return true;
+        }
+
+        $prefixes = ['/reset-password', '/payment/'];
+        foreach ($prefixes as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isTenantHostAssetPath(string $path): bool
+    {
+        return str_starts_with($path, '/build/')
+            || str_starts_with($path, '/vendor/livewire')
+            || str_starts_with($path, '/livewire/')
+            || $path === '/favicon.ico';
     }
 
     private function applyTenantConnection(string $databaseName): void

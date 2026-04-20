@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use App\Support\InputRules;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -33,10 +34,10 @@ class RegisteredUserController extends Controller
     {
         // 1️⃣ Validate tenant & admin inputs
         $request->validate([
-            'tenant_name' => ['required', 'string', 'max:255'],
+            'tenant_name' => InputRules::title(255, true),
             'slug' => ['required', 'string', 'max:255', 'regex:/^[a-z0-9-]+$/', 'unique:tenants,slug'],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255'],
+            'name' => InputRules::personName(255, true),
+            'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 

@@ -5,20 +5,29 @@
             <p class="text-[11px] text-gray-500 mt-0.5">{{ __('Review subscription choices, payment references, then approve to provision the tenant.') }}</p>
         </div>
     </x-slot>
+    @php
+        $plansForModal = \App\Models\Plan::where('is_active', true)->orderBy('sort_order')->get(['id', 'name']);
+    @endphp
 
     <div class="w-full min-w-0 max-w-7xl space-y-5 -mt-1"
          x-data="{
              detailOpen: false,
+             editTenantOpen: false,
+             editTenant: null,
+             plans: @js($plansForModal),
              d: {},
              openDetails(payload) { this.d = payload; this.detailOpen = true; },
              closeDetails() { this.detailOpen = false; },
+             openEditTenant(payload) { this.editTenant = payload; this.editTenantOpen = true; },
+             closeEditTenant() { this.editTenantOpen = false; this.editTenant = null; },
              init() {
-                 this.$watch('detailOpen', v => document.body.classList.toggle('overflow-y-hidden', v));
+                 this.$watch('detailOpen', v => document.body.classList.toggle('overflow-y-hidden', v || this.editTenantOpen));
+                 this.$watch('editTenantOpen', v => document.body.classList.toggle('overflow-y-hidden', v || this.detailOpen));
              }
          }"
-         @keydown.escape.window="if (detailOpen) closeDetails()">
+         @keydown.escape.window="if (editTenantOpen) closeEditTenant(); else if (detailOpen) closeDetails()">
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.tenant-registrations.kpi.hidden" grid-class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" accent="indigo">
             <div class="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90">{{ __('Awaiting payment') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-amber-950">{{ $stats['awaiting_payment'] }}</p>
@@ -35,7 +44,7 @@
                 <p class="text-[11px] font-medium uppercase tracking-wide text-red-800/90">{{ __('Rejected (all time)') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-red-950">{{ $stats['rejected_total'] }}</p>
             </div>
-        </div>
+        </x-stat-kpi-toggle>
 
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -100,8 +109,8 @@
                                     <td class="px-4 py-3 font-mono text-xs text-gray-800">{{ $r->primary_domain }}</td>
                                     <td class="px-4 py-3 text-gray-700">
                                         {{ $r->plan?->name ?? '—' }}
-                                        @if($r->subscription_months)
-                                            <span class="block text-xs text-gray-500">{{ $r->subscription_months }} {{ __('mo') }} · ₱{{ number_format($r->amountDue(), 2) }}</span>
+                                        @if($r->subscriptionTermLabel())
+                                            <span class="block text-xs text-gray-500">{{ $r->subscriptionTermLabel() }} · ₱{{ number_format($r->amountDue(), 2) }}</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-xs text-gray-600">
@@ -128,8 +137,8 @@
                                                     'admin_name' => $r->admin_name,
                                                     'admin_email' => $r->admin_email,
                                                     'plan_name' => $r->plan?->name,
-                                                    'subscription_months' => $r->subscription_months,
-                                                    'amount_formatted' => $r->subscription_months ? number_format($r->amountDue(), 2) : null,
+                                                    'subscription_term_label' => $r->subscriptionTermLabel(),
+                                                    'amount_formatted' => $r->plan ? number_format($r->amountDue(), 2) : null,
                                                     'status' => $r->status,
                                                     'payment_provider' => $r->payment_provider,
                                                     'payment_reference' => $r->payment_reference,
@@ -253,8 +262,8 @@
                                     </td>
                                     <td class="hidden max-w-0 px-3 py-2.5 text-gray-700 md:table-cell sm:px-4 sm:py-3">
                                         <span class="block truncate" title="{{ $h->plan?->name ?? '—' }}">{{ $h->plan?->name ?? '—' }}</span>
-                                        @if($h->subscription_months)
-                                            <span class="block truncate text-xs text-gray-500">{{ $h->subscription_months }} {{ __('mo') }}</span>
+                                        @if($h->subscriptionTermLabel())
+                                            <span class="block truncate text-xs text-gray-500">{{ $h->subscriptionTermLabel() }}</span>
                                         @endif
                                     </td>
                                     <td class="hidden max-w-0 px-3 py-2.5 tabular-nums text-gray-800 lg:table-cell sm:px-4 sm:py-3">
@@ -295,7 +304,7 @@
                                                         'admin_name' => $h->admin_name,
                                                         'admin_email' => $h->admin_email,
                                                         'plan_name' => $h->plan?->name,
-                                                        'subscription_months' => $h->subscription_months,
+                                                        'subscription_term_label' => $h->subscriptionTermLabel(),
                                                         'amount_formatted' => $h->plan ? number_format($h->amountDue(), 2) : null,
                                                         'status' => $h->status,
                                                         'payment_provider' => $h->payment_provider,
@@ -306,16 +315,31 @@
                                                         'reviewed_at_label' => $h->reviewed_at?->timezone(config('app.timezone'))->format('M j, Y g:i A'),
                                                         'reviewer_name' => $h->reviewer?->name,
                                                         'rejection_reason' => $h->rejection_reason,
-                                                        'tenant_manage_url' => $h->approved_tenant_id ? route('admin.tenants.edit', $h->approved_tenant_id) : null,
+                                                        'tenant_edit' => $h->approved_tenant_id ? [
+                                                            'id' => $h->approved_tenant_id,
+                                                            'tenant_name' => $h->approvedTenant?->tenant_name ?? $h->tenant_name,
+                                                            'primary_domain' => $h->approvedTenant?->primaryDomain()?->domain ?? $h->primary_domain,
+                                                            'email' => $h->approvedTenant?->email ?? $h->admin_email,
+                                                            'plan_id' => $h->approvedTenant?->plan_id,
+                                                            'subscription_months' => (int) ($h->approvedTenant?->subscription_months ?? $h->subscription_months ?? 1),
+                                                        ] : null,
                                                     ]))"
                                                     class="inline-flex rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-semibold text-gray-800 hover:bg-gray-50 sm:px-2.5 sm:text-xs">
                                                 {{ __('Details') }}
                                             </button>
                                             @if($h->approved_tenant_id)
-                                                <a href="{{ route('admin.tenants.edit', $h->approved_tenant_id) }}"
+                                                <button type="button"
+                                                   @click="openEditTenant(@js([
+                                                       'id' => $h->approved_tenant_id,
+                                                       'tenant_name' => $h->approvedTenant?->tenant_name ?? $h->tenant_name,
+                                                       'primary_domain' => $h->approvedTenant?->primaryDomain()?->domain ?? $h->primary_domain,
+                                                       'email' => $h->approvedTenant?->email ?? $h->admin_email,
+                                                       'plan_id' => $h->approvedTenant?->plan_id,
+                                                       'subscription_months' => (int) ($h->approvedTenant?->subscription_months ?? $h->subscription_months ?? 1),
+                                                   ]))"
                                                    class="inline-flex rounded-lg border border-indigo-100 bg-indigo-50/80 px-2 py-1 text-[10px] font-semibold text-indigo-800 hover:bg-indigo-100 sm:px-2.5 sm:text-xs">
                                                     {{ __('Tenant') }}
-                                                </a>
+                                                </button>
                                             @endif
                                         </div>
                                     </td>
@@ -386,18 +410,18 @@
                             <p class="text-xs font-medium text-gray-500">{{ __('Rejection reason') }}</p>
                             <p class="mt-1 text-sm text-red-900/90 whitespace-pre-wrap" x-text="d.rejection_reason"></p>
                         </div>
-                        <div x-show="d.tenant_manage_url" class="pt-2">
-                            <a :href="d.tenant_manage_url" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900">
+                        <div x-show="d.tenant_edit" class="pt-2">
+                            <button type="button" @click="openEditTenant(d.tenant_edit)" class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900">
                                 {{ __('Open tenant in admin') }}
                                 <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                            </a>
+                            </button>
                         </div>
                     </div>
                     <div>
                         <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ __('Plan & amount') }}</h3>
                         <p class="mt-2 text-sm text-gray-900">
                             <span x-text="d.plan_name || '—'"></span>
-                            <span class="block text-xs text-gray-500 mt-0.5" x-text="d.subscription_months ? (d.subscription_months + ' {{ __('mo') }} · ₱' + d.amount_formatted) : '—'"></span>
+                            <span class="block text-xs text-gray-500 mt-0.5" x-text="d.subscription_term_label ? (d.subscription_term_label + (d.amount_formatted ? (' · ₱' + d.amount_formatted) : '')) : '—'"></span>
                         </p>
                     </div>
                     <div>
@@ -431,6 +455,96 @@
                             <p class="mt-2 text-sm text-gray-500">{{ __('No payment proof image has been uploaded for this application yet.') }}</p>
                         </template>
                     </div>
+                </div>
+            </div>
+        </div>
+        </template>
+
+        <template x-teleport="body">
+        <div x-show="editTenantOpen && editTenant" x-cloak
+             class="fixed inset-0 z-[110] flex items-center justify-center p-4"
+             role="dialog" aria-modal="true" aria-labelledby="tenant-modal-title">
+            <div class="absolute inset-0 bg-gray-900/65" @click="closeEditTenant()" aria-hidden="true"></div>
+            <div class="relative w-full max-w-xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden"
+                 @click.stop>
+                <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                    <h2 id="tenant-modal-title" class="text-sm font-semibold text-gray-900">{{ __('Edit tenant') }}</h2>
+                    <button type="button" @click="closeEditTenant()" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-y-auto px-6 py-5">
+                    <form method="POST"
+                          :action="editTenant ? '{{ url('admin/tenants') }}/' + editTenant.id : '#'"
+                          class="space-y-4 text-sm">
+                        @csrf
+                        @method('PATCH')
+                        <div>
+                            <x-admin::input-label for="modal_tenant_name" :value="__('Tenant name')" />
+                            <x-admin::text-input id="modal_tenant_name" name="tenant_name" type="text" class="mt-1 block w-full"
+                                                 x-model="editTenant.tenant_name" required constraint="title" />
+                        </div>
+                        <div>
+                            <x-admin::input-label for="modal_primary_domain" :value="__('Preferred site name')" />
+                            <x-admin::text-input id="modal_primary_domain" name="primary_domain" type="text" class="mt-1 block w-full"
+                                                 x-model="editTenant.primary_domain" required constraint="primaryDomain" />
+                            @php($sfxEdit = trim((string) config('tenancy.tenant_host_suffix', 'localhost')))
+                            <p class="mt-1 text-[11px] text-gray-500">
+                                @if($sfxEdit !== '')
+                                    {{ __('Short name; :suffix is added for the live hostname.', ['suffix' => '.'.$sfxEdit]) }}
+                                @else
+                                    {{ __('Must match what visitors type in the browser.') }}
+                                @endif
+                            </p>
+                        </div>
+                        <div>
+                            <x-admin::input-label for="modal_email" :value="__('Admin email')" />
+                            <x-admin::text-input id="modal_email" name="email" type="email" class="mt-1 block w-full"
+                                                 x-model="editTenant.email" required constraint="email" />
+                        </div>
+                        <div>
+                            <x-admin::input-label for="modal_plan_id" :value="__('Plan (optional)')" />
+                            <select id="modal_plan_id" name="plan_id"
+                                    class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                                <option value="">No plan</option>
+                                <template x-for="plan in plans" :key="plan.id">
+                                    <option :value="plan.id" x-text="plan.name"
+                                            :selected="editTenant && Number(editTenant.plan_id) === Number(plan.id)"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <x-admin::input-label for="modal_subscription_months" :value="__('Subscription length')" />
+                            <p class="mt-1 text-[11px] text-gray-500">{{ __('If you change the plan or term, subscription end is recalculated from today (:days days per month).', ['days' => \App\Models\TenantRegistrationRequest::BILLING_DAYS_PER_MONTH]) }}</p>
+                            <select id="modal_subscription_months" name="subscription_months"
+                                    x-model="editTenant.subscription_months"
+                                    class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                                @foreach (range(1, 12) as $m)
+                                    <option value="{{ $m }}">{{ $m }} {{ $m === 1 ? __('month') : __('months') }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <x-admin::input-label for="modal_password" :value="__('New password (optional)')" />
+                                <x-admin::text-input id="modal_password" name="password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            </div>
+                            <div>
+                                <x-admin::input-label for="modal_password_confirmation" :value="__('Confirm password')" />
+                                <x-admin::text-input id="modal_password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between gap-2 pt-2">
+                            <button type="button" @click="closeEditTenant()"
+                                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                    class="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">
+                                Save changes
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>

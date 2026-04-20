@@ -7,6 +7,7 @@ use App\Models\Plan;
 use App\Models\TenantDomain;
 use App\Models\TenantRegistrationRequest;
 use App\Services\TenantRegistrationNotifier;
+use App\Support\InputRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -34,8 +35,16 @@ class TenantRegisterController extends Controller
 
         $request->validate([
             'plan_id' => ['required', 'exists:plans,id'],
-            'subscription_months' => ['required', 'integer', 'min:1', 'max:12'],
-            'tenant_name' => ['required', 'string', 'max:255'],
+            'subscription_term_type' => ['required', Rule::in(['months', 'days'])],
+            'subscription_months' => ['required_if:subscription_term_type,months', 'nullable', 'integer', 'min:1', 'max:12'],
+            'subscription_days' => [
+                'required_if:subscription_term_type,days',
+                'nullable',
+                'integer',
+                'min:1',
+                'max:'.TenantRegistrationRequest::MAX_SUBSCRIPTION_DAYS,
+            ],
+            'tenant_name' => InputRules::title(255, true),
             'primary_domain' => [
                 'required',
                 'string',
@@ -43,8 +52,8 @@ class TenantRegisterController extends Controller
                 'regex:'.TenantDomain::STORED_DOMAIN_REGEX,
                 Rule::unique('tenant_domains', 'domain'),
             ],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'name' => InputRules::personName(255, true),
+            'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -68,10 +77,21 @@ class TenantRegisterController extends Controller
             return back()->withErrors(['primary_domain' => __('Use your resort’s own domain, not the central app host.')])->withInput();
         }
 
+        $termType = (string) $request->input('subscription_term_type');
+        $subscriptionMonths = null;
+        $subscriptionDays = null;
+        if ($termType === 'days') {
+            $subscriptionDays = max(1, min(TenantRegistrationRequest::MAX_SUBSCRIPTION_DAYS, (int) $request->input('subscription_days')));
+            $subscriptionMonths = max(1, (int) ceil($subscriptionDays / TenantRegistrationRequest::BILLING_DAYS_PER_MONTH));
+        } else {
+            $subscriptionMonths = max(1, min(12, (int) $request->input('subscription_months', 1)));
+        }
+
         $registration = TenantRegistrationRequest::create([
             'token' => (string) Str::uuid(),
             'plan_id' => $plan->id,
-            'subscription_months' => (int) $request->subscription_months,
+            'subscription_months' => $subscriptionMonths,
+            'subscription_days' => $subscriptionDays,
             'tenant_name' => $request->tenant_name,
             'primary_domain' => $domain,
             'admin_name' => $request->name,

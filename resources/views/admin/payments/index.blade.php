@@ -20,7 +20,7 @@
             }
          }"
          @keydown.escape.window="proofModalOpen = false">
-        <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.payments.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" accent="indigo">
             <div class="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90">{{ __('Pending requests') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-amber-950">{{ $pendingCount }}</p>
@@ -41,7 +41,7 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-indigo-950">{{ $activeSubscriptions }}</p>
                 <p class="mt-1 text-xs text-indigo-900/70">{{ __('Tenants with future end date') }}</p>
             </div>
-        </section>
+        </x-stat-kpi-toggle>
 
         <section class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-gray-100 px-4 py-3 sm:px-5 space-y-3">

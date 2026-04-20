@@ -11,12 +11,6 @@
         </p>
     </div>
 
-    @if (session('status'))
-        <p class="mb-3 rounded-lg bg-emerald-50 px-3 py-2 text-center text-[11px] font-medium text-emerald-800 sm:text-xs" role="status">
-            {{ session('status') }}
-        </p>
-    @endif
-
     <form method="POST" action="{{ route('tenant.password.otp.verify') }}" class="space-y-3">
         @csrf
 
@@ -27,13 +21,10 @@
                 class="mt-0.5 block w-full min-h-10 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center text-lg font-semibold tracking-[0.35em] text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                 type="text"
                 name="otp"
-                inputmode="numeric"
-                autocomplete="one-time-code"
-                maxlength="6"
-                pattern="[0-9]{6}"
                 required
                 autofocus
                 placeholder="000000"
+                constraint="otp"
             />
             <x-tenant::input-error :messages="$errors->get('otp')" class="mt-1" />
         </div>

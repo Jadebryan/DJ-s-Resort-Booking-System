@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\ActivityLog;
 use App\Models\TenantPlanUpgradeRequest;
 use App\Services\SubscriptionUpgradeProration;
+use App\Support\InputRules;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -42,7 +43,7 @@ class PaymentController extends Controller
             ->first();
         $subscriptionEndsAt = $tenant->subscription_ends_at;
         $daysRemaining = $subscriptionEndsAt
-            ? max(0, Carbon::now()->startOfDay()->diffInDays($subscriptionEndsAt->copy()->startOfDay(), false))
+            ? Carbon::now()->startOfDay()->diffInDays($subscriptionEndsAt->copy()->startOfDay(), false)
             : null;
 
         return view('Tenant.payment.portal', [
@@ -116,8 +117,9 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'requested_plan_id' => ['required', 'integer', 'exists:plans,id'],
             'requested_months' => ['required', 'integer', 'min:1', 'max:12'],
-            'payment_method' => ['required', 'string', 'max:80'],
-            'payment_reference' => ['nullable', 'string', 'max:120'],
+            'payment_method' => InputRules::paymentMethod(80, true),
+            // keep looser to support bank refs; still strict-ish
+            'payment_reference' => ['nullable', 'string', 'max:120', "regex:/^[A-Za-z0-9][A-Za-z0-9\\s._\\-]*$/"],
             'payment_notes' => ['nullable', 'string', 'max:1500'],
             'payment_proof' => ['nullable', 'image', 'max:1900'],
         ], [

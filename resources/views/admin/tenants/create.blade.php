@@ -17,7 +17,7 @@
                     <div>
                         <x-admin::input-label for="tenant_name" :value="__('Resort / Tenant Name')" />
                         <x-admin::text-input id="tenant_name" name="tenant_name" type="text" class="mt-1 block w-full"
-                                             :value="old('tenant_name')" required autofocus />
+                                             :value="old('tenant_name')" required autofocus constraint="title" />
                         <x-admin::input-error :messages="$errors->get('tenant_name')" class="mt-1" />
                     </div>
 
@@ -25,7 +25,7 @@
                         @php($sfx = trim((string) config('tenancy.tenant_host_suffix', 'localhost')))
                         <x-admin::input-label for="primary_domain" :value="__('Preferred site name')" />
                         <x-admin::text-input id="primary_domain" name="primary_domain" type="text" class="mt-1 block w-full"
-                                             :value="old('primary_domain')" placeholder="e.g. myresort" required />
+                                             :value="old('primary_domain')" placeholder="e.g. myresort" required constraint="primaryDomain" />
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             @if($sfx !== '')
                                 {{ __('Short label only; we add :suffix. Not the central app host.', ['suffix' => '.'.$sfx]) }}
@@ -39,7 +39,7 @@
                     <div>
                         <x-admin::input-label for="email" :value="__('Admin email')" />
                         <x-admin::text-input id="email" name="email" type="email" class="mt-1 block w-full"
-                                             :value="old('email')" required />
+                                             :value="old('email')" required constraint="email" />
                         <x-admin::input-error :messages="$errors->get('email')" class="mt-1" />
                     </div>
 

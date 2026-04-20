@@ -25,6 +25,7 @@
                 required
                 autofocus
                 autocomplete="username"
+                constraint="email"
             />
             <x-tenant::input-error :messages="$errors->get('email')" class="mt-1" />
         </div>

@@ -15,13 +15,13 @@
 
                     <div>
                         <x-tenant::input-label for="name" :value="__('Name')" />
-                        <x-tenant::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required autofocus />
+                        <x-tenant::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required autofocus constraint="personName" />
                         <x-tenant::input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
 
                     <div>
                         <x-tenant::input-label for="email" :value="__('Email')" />
-                        <x-tenant::text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email')" required />
+                        <x-tenant::text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email')" required constraint="email" />
                         <x-tenant::input-error :messages="$errors->get('email')" class="mt-1" />
                     </div>
 

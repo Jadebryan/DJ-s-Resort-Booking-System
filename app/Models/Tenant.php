@@ -77,4 +77,17 @@ class Tenant extends Authenticatable
 
         return $custom !== '' ? $custom : (string) $this->tenant_name;
     }
+
+    /**
+     * True when subscription_ends_at is set and the end calendar day is before today.
+     * Aligns with “days remaining” / “expired” labels that compare start-of-day instants.
+     */
+    public function subscriptionIsExpired(): bool
+    {
+        if ($this->subscription_ends_at === null) {
+            return false;
+        }
+
+        return $this->subscription_ends_at->copy()->startOfDay()->lt(now()->startOfDay());
+    }
 }

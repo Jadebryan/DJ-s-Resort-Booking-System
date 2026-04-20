@@ -16,7 +16,7 @@
         </p>
     </div>
 
-    <x-form-with-busy method="POST" action="{{ route('tenant.user.login') }}" class="space-y-3" :overlay="false" busy-message="{{ __('Signing in…') }}">
+    <x-form-with-busy method="POST" action="{{ tenant_url('user/login') }}" class="space-y-3" :overlay="false" busy-message="{{ __('Signing in…') }}">
         @csrf
 
         <div>
@@ -30,6 +30,7 @@
                 required
                 autofocus
                 autocomplete="username"
+                constraint="email"
             />
             <x-tenant-user::input-error :messages="$errors->get('email')" class="mt-1" />
         </div>

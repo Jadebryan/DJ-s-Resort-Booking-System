@@ -34,7 +34,7 @@ class PasswordResetLinkController extends Controller
     public function store(Request $request, PasswordResetOtpService $otpService): RedirectResponse
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'email:rfc,dns', 'max:254'],
         ]);
 
         $email = $request->string('email')->toString();

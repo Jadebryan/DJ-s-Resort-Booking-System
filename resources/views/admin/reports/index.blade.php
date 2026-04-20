@@ -8,7 +8,7 @@
 
     <div class="w-full min-w-0 max-w-7xl space-y-5 -mt-1 text-left"
          x-data="{ reportsFilter: '' }">
-        <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.reports.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" accent="indigo">
             <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-indigo-800/90">{{ __('Total tenants') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-indigo-950">{{ $tenantCount }}</p>
@@ -29,7 +29,7 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-amber-950">{{ $tenantsWithoutPlan }}</p>
                 <p class="mt-1 text-xs text-amber-900/70">{{ __('Tenants without plan_id') }}</p>
             </div>
-        </section>
+        </x-stat-kpi-toggle>
 
         <section class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

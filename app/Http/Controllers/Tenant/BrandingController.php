@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
+use App\Support\InputRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -49,11 +50,12 @@ class BrandingController extends Controller
         $tenant = $this->getTenant($request);
 
         $validated = $request->validate([
-            'tenant_name' => ['nullable', 'string', 'max:255'],
+            'tenant_name' => InputRules::title(255, false),
             'primary_color' => ['nullable', 'string', 'max:20'],
             'secondary_color' => ['nullable', 'string', 'max:20'],
             'landing_page_bg' => ['nullable', 'string', 'regex:/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/'],
             'logo' => ['nullable', 'image', 'max:2048'],
+            'logo_cropped' => ['nullable', 'string'],
             'remove_logo' => ['nullable', 'boolean'],
             'hero_media' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/webp,video/mp4,video/webm', 'max:1900'],
             'remove_hero_media' => ['nullable', 'boolean'],
@@ -64,16 +66,16 @@ class BrandingController extends Controller
             'section_order.hero' => ['nullable', 'integer', 'min:1', 'max:3'],
             'section_order.rooms' => ['nullable', 'integer', 'min:1', 'max:3'],
             'section_order.cta' => ['nullable', 'integer', 'min:1', 'max:3'],
-            'hero_title' => ['nullable', 'string', 'max:120'],
+            'hero_title' => InputRules::title(120, false),
             'hero_subtitle' => ['nullable', 'string', 'max:220'],
-            'hero_badge' => ['nullable', 'string', 'max:80'],
+            'hero_badge' => InputRules::title(80, false),
             'hero_note' => ['nullable', 'string', 'max:160'],
-            'cta_primary_text' => ['nullable', 'string', 'max:40'],
-            'cta_secondary_text' => ['nullable', 'string', 'max:40'],
+            'cta_primary_text' => InputRules::title(40, false),
+            'cta_secondary_text' => InputRules::title(40, false),
             'cta_primary_url' => ['nullable', 'string', 'max:255'],
             'cta_secondary_url' => ['nullable', 'string', 'max:255'],
-            'contact_phone' => ['nullable', 'string', 'max:40'],
-            'contact_email' => ['nullable', 'email', 'max:120'],
+            'contact_phone' => InputRules::phone(25, false),
+            'contact_email' => ['nullable', 'email:rfc,dns', 'max:120'],
             'contact_address' => ['nullable', 'string', 'max:255'],
             'social_facebook' => ['nullable', 'url', 'max:255'],
             'social_instagram' => ['nullable', 'url', 'max:255'],
@@ -86,9 +88,15 @@ class BrandingController extends Controller
             'remove_seo_favicon' => ['nullable', 'boolean'],
             'promo_enabled' => ['nullable', 'boolean'],
             'promo_text' => ['nullable', 'string', 'max:180'],
+            'promo_image' => ['nullable', 'image', 'max:1900'],
+            'promo_image_cropped' => ['nullable', 'string'],
+            'remove_promo_image' => ['nullable', 'boolean'],
             'promo_start_date' => ['nullable', 'date'],
             'promo_end_date' => ['nullable', 'date', 'after_or_equal:promo_start_date'],
             'promo_dismissible' => ['nullable', 'boolean'],
+            'promo_cta_text' => InputRules::title(40, false),
+            'promo_cta_url' => ['nullable', 'string', 'max:255'],
+            'promo_frequency_days' => ['nullable', 'integer', 'min:0', 'max:365'],
         ], [
             'hero_media.uploaded' => 'Hero media failed to upload. Your current PHP upload limit is 2MB. Please upload a smaller file.',
             'hero_media.max' => 'Hero media must be 1.9MB or smaller on this server.',
@@ -102,6 +110,11 @@ class BrandingController extends Controller
                 Storage::disk('public')->delete($tenant->logo_path);
             }
             $tenant->logo_path = null;
+        } elseif (!empty($validated['logo_cropped'])) {
+            if ($tenant->logo_path) {
+                Storage::disk('public')->delete($tenant->logo_path);
+            }
+            $tenant->logo_path = $this->storeCroppedImage((string) $validated['logo_cropped'], 'tenant-logos', 'logo');
         } elseif ($request->hasFile('logo')) {
             if ($tenant->logo_path) {
                 Storage::disk('public')->delete($tenant->logo_path);
@@ -140,6 +153,16 @@ class BrandingController extends Controller
             $meta['hero_media_type'] = str_starts_with($heroMime, 'video/') ? 'video' : 'image';
         }
 
+        // Legacy hero carousel files removed; landing hero slideshow uses available rooms.
+        if (! empty($meta['hero_media_gallery_paths']) && is_array($meta['hero_media_gallery_paths'])) {
+            foreach ($meta['hero_media_gallery_paths'] as $oldPath) {
+                if (is_string($oldPath) && $oldPath !== '' && ! str_starts_with($oldPath, 'http://') && ! str_starts_with($oldPath, 'https://')) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+        }
+        unset($meta['hero_media_gallery_paths']);
+
         if ($request->boolean('remove_seo_og_image')) {
             if (!empty($meta['seo_og_image_path'])) {
                 Storage::disk('public')->delete($meta['seo_og_image_path']);
@@ -162,6 +185,23 @@ class BrandingController extends Controller
                 Storage::disk('public')->delete($meta['seo_favicon_path']);
             }
             $meta['seo_favicon_path'] = $request->file('seo_favicon')->store('tenant-seo', 'public');
+        }
+
+        if ($request->boolean('remove_promo_image')) {
+            if (!empty($meta['promo_image_path'])) {
+                Storage::disk('public')->delete($meta['promo_image_path']);
+            }
+            $meta['promo_image_path'] = null;
+        } elseif (!empty($validated['promo_image_cropped'])) {
+            if (!empty($meta['promo_image_path'])) {
+                Storage::disk('public')->delete($meta['promo_image_path']);
+            }
+            $meta['promo_image_path'] = $this->storeCroppedImage((string) $validated['promo_image_cropped'], 'tenant-promo', 'promo_image');
+        } elseif ($request->hasFile('promo_image')) {
+            if (!empty($meta['promo_image_path'])) {
+                Storage::disk('public')->delete($meta['promo_image_path']);
+            }
+            $meta['promo_image_path'] = $request->file('promo_image')->store('tenant-promo', 'public');
         }
 
         $landingBg = trim((string) ($validated['landing_page_bg'] ?? ''));
@@ -191,6 +231,11 @@ class BrandingController extends Controller
         $meta['promo_start_date'] = trim((string) ($validated['promo_start_date'] ?? '')) ?: null;
         $meta['promo_end_date'] = trim((string) ($validated['promo_end_date'] ?? '')) ?: null;
         $meta['promo_dismissible'] = $request->boolean('promo_dismissible', true);
+        $meta['promo_cta_text'] = trim((string) ($validated['promo_cta_text'] ?? '')) ?: null;
+        $meta['promo_cta_url'] = $this->normalizeCtaUrl($validated['promo_cta_url'] ?? null, 'promo_cta_url');
+        $meta['promo_frequency_days'] = isset($validated['promo_frequency_days']) && $validated['promo_frequency_days'] !== ''
+            ? (int) $validated['promo_frequency_days']
+            : 7;
 
         $meta['section_visibility'] = [
             'hero' => $request->boolean('sections.hero_enabled', true),
@@ -272,5 +317,27 @@ class BrandingController extends Controller
         }
 
         return $value;
+    }
+
+    protected function storeCroppedImage(string $dataUrl, string $folder, string $errorField): string
+    {
+        if (!preg_match('/^data:image\/(png|jpeg|jpg|webp);base64,(.+)$/', $dataUrl, $matches)) {
+            throw ValidationException::withMessages([$errorField => 'Invalid cropped image format.']);
+        }
+
+        $extension = strtolower($matches[1]) === 'jpeg' ? 'jpg' : strtolower($matches[1]);
+        $binary = base64_decode($matches[2], true);
+        if ($binary === false) {
+            throw ValidationException::withMessages([$errorField => 'Failed to decode cropped image.']);
+        }
+
+        if (strlen($binary) > 2 * 1024 * 1024) {
+            throw ValidationException::withMessages([$errorField => 'Cropped image is too large.']);
+        }
+
+        $path = $folder . '/' . uniqid('crop_', true) . '.' . $extension;
+        Storage::disk('public')->put($path, $binary);
+
+        return $path;
     }
 }

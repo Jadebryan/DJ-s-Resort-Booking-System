@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\Room;
 use App\Models\TenantRbacRole;
 use App\Models\TenantModel\Tenant as TenantUser;
 use App\Models\TenantUserModel\RegularUser;
@@ -44,11 +43,6 @@ class AppServiceProvider extends ServiceProvider
         // Resolve {member} in tenant staff routes to TenantUser (tenant DB)
         Route::bind('member', function (string $value) {
             return TenantUser::findOrFail($value);
-        });
-
-        // Resolve {room} in tenant book routes to Room (tenant DB)
-        Route::bind('room', function (string $value) {
-            return Room::findOrFail($value);
         });
 
         Route::bind('rbacRole', function (string $value) {

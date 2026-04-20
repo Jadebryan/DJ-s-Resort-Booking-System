@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Support\TenantStaffPermissionDeniedResponse;
 use App\Models\ActivityLog;
 use App\Models\TenantRbacRole;
 use App\Models\TenantModel\Tenant as TenantUser;
 use App\Services\TenantRbacService;
+use App\Support\InputRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -17,6 +20,20 @@ use Illuminate\View\View;
 
 class TenantUserController extends Controller
 {
+    /**
+     * Route model binding is unreliable for `{member}` on tenant domain routes; resolve explicitly.
+     */
+    protected function memberFromRoute(Request $request): TenantUser
+    {
+        $value = $request->route('member');
+
+        if ($value instanceof TenantUser) {
+            return $value;
+        }
+
+        return TenantUser::on('tenant')->findOrFail((int) $value);
+    }
+
     protected function staffRbacRoleRules(string $roleValue): array
     {
         $svc = app(TenantRbacService::class);
@@ -55,14 +72,16 @@ class TenantUserController extends Controller
         return app(TenantRbacService::class)->staffCan($user, 'staff', $action);
     }
 
-    protected function redirectForbidden(Request $request): RedirectResponse
+    protected function redirectForbidden(Request $request): Response
     {
-        return redirect()
-            ->route('tenant.dashboard')
-            ->with('error', __('You do not have permission to manage staff.'));
+        return TenantStaffPermissionDeniedResponse::make(
+            $request,
+            __('Staff management'),
+            __('You don’t have permission to manage staff accounts. Only the resort owner, or team members with the right staff permissions, can use this area.')
+        );
     }
 
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request): View|RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'read')) {
             return $this->redirectForbidden($request);
@@ -78,7 +97,7 @@ class TenantUserController extends Controller
             'email' => $u->email,
             'role' => $u->role,
             'tenant_rbac_role_id' => $u->tenant_rbac_role_id,
-            'update_url' => route('tenant.staff.update', ['member' => $u]),
+            'update_url' => tenant_url('staff/'.$u->id),
         ])->values()->all();
         $staffRbacRoles = app(TenantRbacService::class)->rbacTablesReady()
             ? TenantRbacRole::query()->where('kind', TenantRbacRole::KIND_STAFF)->orderBy('name')->get()
@@ -97,7 +116,7 @@ class TenantUserController extends Controller
         ]);
     }
 
-    public function create(Request $request): View|RedirectResponse
+    public function create(Request $request): View|RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'create')) {
             return $this->redirectForbidden($request);
@@ -105,15 +124,15 @@ class TenantUserController extends Controller
         return view('Tenant.staff.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'create')) {
             return $this->redirectForbidden($request);
         }
         try {
             $validated = $request->validate(array_merge([
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('tenant_users', 'email')->connection('tenant')],
+                'name' => InputRules::personName(255, true),
+                'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254', Rule::unique(TenantUser::class, 'email')],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
                 'role' => ['required', 'in:admin,staff'],
             ], $this->staffRbacRoleRules((string) $request->input('role'))));
@@ -152,22 +171,25 @@ class TenantUserController extends Controller
             ->with('success', 'Staff member added.');
     }
 
-    public function edit(Request $request, TenantUser $member): View|RedirectResponse
+    public function edit(Request $request): View|RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'read')) {
             return $this->redirectForbidden($request);
         }
+        $member = $this->memberFromRoute($request);
+
         return view('Tenant.staff.edit', compact('member'));
     }
 
-    public function update(Request $request, TenantUser $member): RedirectResponse
+    public function update(Request $request): RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'update')) {
             return $this->redirectForbidden($request);
         }
+        $member = $this->memberFromRoute($request);
         $rules = array_merge([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('tenant_users', 'email')->connection('tenant')->ignore($member->id)],
+            'name' => InputRules::personName(255, true),
+            'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254', Rule::unique(TenantUser::class, 'email')->ignore($member->id)],
             'role' => ['required', 'in:admin,staff'],
         ], $this->staffRbacRoleRules((string) $request->input('role')));
         if ($request->filled('password')) {
@@ -219,11 +241,12 @@ class TenantUserController extends Controller
             ->with('success', 'Staff member updated.');
     }
 
-    public function destroy(Request $request, TenantUser $member): RedirectResponse
+    public function destroy(Request $request): RedirectResponse|Response
     {
         if (! $this->ensureStaffPermission($request, 'delete')) {
             return $this->redirectForbidden($request);
         }
+        $member = $this->memberFromRoute($request);
         /** @var TenantUser $actor */
         $actor = $request->user('tenant');
         if ($actor->role !== 'admin' && $member->role === 'admin') {

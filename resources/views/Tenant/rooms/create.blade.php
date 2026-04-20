@@ -15,7 +15,7 @@
 
                     <div>
                         <x-tenant::input-label for="name" :value="__('Name')" />
-                        <x-tenant::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required autofocus />
+                        <x-tenant::text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required autofocus constraint="title" />
                         <x-tenant::input-error :messages="$errors->get('name')" class="mt-1" />
                     </div>
 
@@ -30,19 +30,19 @@
 
                     <div>
                         <x-tenant::input-label for="description" :value="__('Description (optional)')" />
-                        <textarea id="description" name="description" rows="3" class="mt-1 block w-full border-slate-300 bg-white text-slate-900 rounded-md shadow-sm focus:border-sky-500 focus:ring-sky-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">{{ old('description') }}</textarea>
+                        <textarea id="description" name="description" rows="3" {{ \App\Support\InputHtmlAttributes::textarea(5000) }} class="mt-1 block w-full border-slate-300 bg-white text-slate-900 rounded-md shadow-sm focus:border-sky-500 focus:ring-sky-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">{{ old('description') }}</textarea>
                         <x-tenant::input-error :messages="$errors->get('description')" class="mt-1" />
                     </div>
 
                     <div>
                         <x-tenant::input-label for="capacity" :value="__('Capacity (optional)')" />
-                        <x-tenant::text-input id="capacity" name="capacity" type="number" min="1" class="mt-1 block w-full" :value="old('capacity')" />
+                        <x-tenant::text-input id="capacity" name="capacity" type="number" min="1" inputmode="numeric" pattern="[0-9]*" maxlength="12" class="mt-1 block w-full" :value="old('capacity')" />
                         <x-tenant::input-error :messages="$errors->get('capacity')" class="mt-1" />
                     </div>
 
                     <div>
                         <x-tenant::input-label for="price_per_night" :value="__('Price per night')" />
-                        <x-tenant::text-input id="price_per_night" name="price_per_night" type="number" step="0.01" min="0" class="mt-1 block w-full" :value="old('price_per_night', '0')" required />
+                        <x-tenant::text-input id="price_per_night" name="price_per_night" type="number" step="0.01" min="0" inputmode="decimal" class="mt-1 block w-full" :value="old('price_per_night', '0')" required />
                         <x-tenant::input-error :messages="$errors->get('price_per_night')" class="mt-1" />
                     </div>
 

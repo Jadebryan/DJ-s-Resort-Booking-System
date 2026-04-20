@@ -7,6 +7,8 @@ use App\Models\ActivityLog;
 use App\Models\Room;
 use App\Models\Tenant;
 use App\Models\RoomImage;
+use App\Support\InputRules;
+use App\Support\TenantPlanFeatures;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +16,26 @@ use Illuminate\View\View;
 
 class RoomController extends Controller
 {
+    /**
+     * Tenant {room} routes do not reliably run implicit/custom binding before the controller
+     * in this app (domain + middleware stack). Resolve from the route parameter explicitly.
+     */
+    protected function roomFromRoute(Request $request): Room
+    {
+        $value = $request->route('room');
+
+        if ($value instanceof Room) {
+            return $value;
+        }
+
+        return Room::on('tenant')->findOrFail((int) $value);
+    }
+
+    protected function canTrackAvailability(Request $request): bool
+    {
+        return TenantPlanFeatures::hasRequestFeature($request, 'availability_tracking');
+    }
+
     protected function getTenantPlan(Request $request): ?\App\Models\Plan
     {
         $tenant = $request->attributes->get('tenant');
@@ -27,16 +49,29 @@ class RoomController extends Controller
     protected function canAddRoom(Request $request): bool
     {
         $plan = $this->getTenantPlan($request);
-        if (!$plan || $plan->hasUnlimitedRooms()) {
+        if (
+            ! $plan
+            || $plan->hasUnlimitedRooms()
+            || TenantPlanFeatures::hasPlanFeature($plan, 'unlimited_rooms')
+        ) {
             return true;
         }
+
         return $plan->allowsRoomCount(Room::count() + 1);
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
-        $rooms = Room::orderBy('name')->get();
         $plan = $this->getTenantPlan($request);
+        $canTrackAvailability = TenantPlanFeatures::hasPlanFeature($plan, 'availability_tracking');
+
+        if (! $canTrackAvailability) {
+            return redirect()
+                ->route('tenant.dashboard')
+                ->with('error', 'Availability tracking is available on Standard and Premium plans.');
+        }
+
+        $rooms = Room::orderBy('name')->get();
         $roomCount = $rooms->count();
         $atLimit = $plan && !$plan->hasUnlimitedRooms() && $roomCount >= $plan->max_rooms;
         $maxRooms = $plan?->max_rooms;
@@ -48,7 +83,8 @@ class RoomController extends Controller
             'capacity' => $r->capacity,
             'price_per_night' => $r->price_per_night,
             'is_available' => $r->is_available,
-            'update_url' => route('tenant.rooms.update', ['room' => $r]),
+            // Same host as the dashboard (route() can point at APP_URL and break PATCH on tenant domains).
+            'update_url' => tenant_url('rooms/'.$r->id),
         ])->values()->all();
         return view('Tenant.rooms.index', [
             'rooms' => $rooms,
@@ -62,6 +98,12 @@ class RoomController extends Controller
 
     public function create(Request $request): View|RedirectResponse
     {
+        if (! $this->canTrackAvailability($request)) {
+            return redirect()
+                ->route('tenant.dashboard')
+                ->with('error', 'Availability tracking is available on Standard and Premium plans.');
+        }
+
         if (!$this->canAddRoom($request)) {
             $plan = $this->getTenantPlan($request);
             return redirect()
@@ -73,6 +115,12 @@ class RoomController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        if (! $this->canTrackAvailability($request)) {
+            return redirect()
+                ->route('tenant.dashboard')
+                ->with('error', 'Availability tracking is available on Standard and Premium plans.');
+        }
+
         if (!$this->canAddRoom($request)) {
             $plan = $this->getTenantPlan($request);
             return redirect()
@@ -82,11 +130,11 @@ class RoomController extends Controller
 
         try {
             $validated = $request->validate([
-                'name' => ['required', 'string', 'max:255'],
+                'name' => InputRules::title(255, true),
                 'description' => ['nullable', 'string'],
                 'type' => ['required', 'in:room,cottage'],
                 'capacity' => ['nullable', 'integer', 'min:1'],
-                'price_per_night' => ['required', 'numeric', 'min:0'],
+                'price_per_night' => InputRules::money(true, 0.0),
                 'is_available' => ['boolean'],
                 'images' => ['nullable', 'array'],
                 'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
@@ -130,20 +178,34 @@ class RoomController extends Controller
             ->with('success', 'Room created successfully.');
     }
 
-    public function edit(Request $request, Room $room): View
+    public function edit(Request $request): View
     {
+        if (! $this->canTrackAvailability($request)) {
+            abort(403, 'Availability tracking is not enabled in your current subscription.');
+        }
+
+        $room = $this->roomFromRoute($request);
+
         return view('Tenant.rooms.edit', compact('room'));
     }
 
-    public function update(Request $request, Room $room): RedirectResponse
+    public function update(Request $request): RedirectResponse
     {
+        if (! $this->canTrackAvailability($request)) {
+            return redirect()
+                ->route('tenant.dashboard')
+                ->with('error', 'Availability tracking is available on Standard and Premium plans.');
+        }
+
+        $room = $this->roomFromRoute($request);
+
         try {
             $validated = $request->validate([
-                'name' => ['required', 'string', 'max:255'],
+                'name' => InputRules::title(255, true),
                 'description' => ['nullable', 'string'],
                 'type' => ['required', 'in:room,cottage'],
                 'capacity' => ['nullable', 'integer', 'min:1'],
-                'price_per_night' => ['required', 'numeric', 'min:0'],
+                'price_per_night' => InputRules::money(true, 0.0),
                 'is_available' => ['boolean'],
                 'images' => ['nullable', 'array'],
                 'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
@@ -189,8 +251,16 @@ class RoomController extends Controller
             ->with('success', 'Room updated successfully.');
     }
 
-    public function destroy(Request $request, Room $room): RedirectResponse
+    public function destroy(Request $request): RedirectResponse
     {
+        if (! $this->canTrackAvailability($request)) {
+            return redirect()
+                ->route('tenant.dashboard')
+                ->with('error', 'Availability tracking is available on Standard and Premium plans.');
+        }
+
+        $room = $this->roomFromRoute($request);
+
         $name = $room->name;
         $room->delete();
         if (class_exists(ActivityLog::class) && \Schema::connection('tenant')->hasTable('activity_logs')) {

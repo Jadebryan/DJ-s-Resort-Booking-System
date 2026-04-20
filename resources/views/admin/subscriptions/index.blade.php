@@ -8,7 +8,7 @@
 
     <div class="w-full min-w-0 max-w-7xl space-y-5 -mt-1 text-left"
          x-data="{ subscriptionFilter: '' }">
-        <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.subscriptions.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-3" accent="indigo">
             <div class="rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-indigo-800/90">{{ __('Plans in catalog') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-indigo-950">{{ $planStats['total'] ?? $plans->count() }}</p>
@@ -24,7 +24,7 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ $planStats['inactive'] ?? 0 }}</p>
                 <p class="mt-1 text-xs text-gray-600">{{ __('Hidden from selection') }}</p>
             </div>
-        </section>
+        </x-stat-kpi-toggle>
 
         <section class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -77,11 +77,13 @@
                                 <div class="md:col-span-2">
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Plan name') }}</label>
                                     <input type="text" name="plans[{{ $index }}][name]" value="{{ old("plans.$index.name", $plan->name) }}"
+                                           {{ \App\Support\InputHtmlAttributes::title(255) }}
                                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Sort order') }}</label>
                                     <input type="number" min="0" max="9999" name="plans[{{ $index }}][sort_order]" value="{{ old("plans.$index.sort_order", $plan->sort_order) }}"
+                                           inputmode="numeric" maxlength="4"
                                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
                                 </div>
                             </div>
@@ -89,6 +91,7 @@
                             <div>
                                 <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Description') }}</label>
                                 <textarea rows="2" name="plans[{{ $index }}][description]"
+                                          {{ \App\Support\InputHtmlAttributes::textarea(2000) }}
                                           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">{{ old("plans.$index.description", $plan->description) }}</textarea>
                             </div>
 
@@ -96,17 +99,20 @@
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Monthly price') }}</label>
                                     <input type="number" min="0" step="0.01" name="plans[{{ $index }}][price_monthly]" value="{{ old("plans.$index.price_monthly", $plan->price_monthly) }}"
+                                           inputmode="decimal"
                                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Yearly price') }}</label>
                                     <input type="number" min="0" step="0.01" name="plans[{{ $index }}][price_yearly]" value="{{ old("plans.$index.price_yearly", $plan->price_yearly) }}"
+                                           inputmode="decimal"
                                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-700 mb-1">{{ __('Max rooms') }}</label>
                                     <input type="number" min="1" name="plans[{{ $index }}][max_rooms]" value="{{ old("plans.$index.max_rooms", $plan->max_rooms) }}"
                                            placeholder="{{ __('Leave empty for unlimited') }}"
+                                           inputmode="numeric" maxlength="12"
                                            class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
                                 </div>
                                 <div class="flex items-end">
@@ -138,11 +144,6 @@
                         </div>
                     @endforeach
 
-                    @if($errors->any())
-                        <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                            {{ __('Please fix the highlighted plan inputs and save again.') }}
-                        </div>
-                    @endif
                 @endif
             </form>
         </section>

@@ -17,7 +17,7 @@
     <div class="w-full min-w-0 max-w-7xl space-y-5 -mt-1 text-left"
          x-data="{ createTicketOpen: @json($errors->any() && old('_from') === 'maintenance_ticket') }"
          @keydown.escape.window="createTicketOpen = false">
-        <section class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <x-stat-kpi-toggle storage-key="mtrbs.admin.maintenance.kpi.hidden" grid-class="grid grid-cols-1 gap-3 sm:grid-cols-3" accent="indigo">
             <div class="rounded-xl border border-amber-100 bg-amber-50/60 px-4 py-3 shadow-sm">
                 <p class="text-[11px] font-medium uppercase tracking-wide text-amber-800/90">{{ __('Open') }}</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-amber-950">{{ $ticketCounts[\App\Models\MaintenanceTicket::STATUS_OPEN] }}</p>
@@ -33,7 +33,7 @@
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-emerald-950">{{ $ticketCounts[\App\Models\MaintenanceTicket::STATUS_RESOLVED] }}</p>
                 <p class="mt-1 text-xs text-emerald-900/70">{{ __('Closed tickets') }}</p>
             </div>
-        </section>
+        </x-stat-kpi-toggle>
 
         <section class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
             <div class="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:px-5 sm:py-4">
@@ -117,6 +117,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-900 mb-1" for="mt-title">{{ __('Title') }}</label>
                             <input id="mt-title" type="text" name="title" value="{{ old('title') }}" required
+                                   {{ \App\Support\InputHtmlAttributes::title(255) }}
                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 @error('title') border-red-500 @enderror"
                                    placeholder="{{ __('e.g. Tenant 2: Database backup failure') }}">
                             <x-admin::input-error :messages="$errors->get('title')" class="mt-1" />
@@ -142,6 +143,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-900 mb-1" for="mt-related">{{ __('Related tenant (optional)') }}</label>
                             <input id="mt-related" type="text" name="related_tenant" value="{{ old('related_tenant') }}"
+                                   {{ \App\Support\InputHtmlAttributes::title(255) }}
                                    class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
                                    placeholder="{{ __('Tenant name or ID') }}">
                         </div>

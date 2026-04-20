@@ -36,7 +36,7 @@ class EnsureActionToast
         }
 
         $session = $request->session();
-        if ($session->has('success') || $session->has('error') || $session->has('info') || $session->has('status')) {
+        if ($session->has('success') || $session->has('error') || $session->has('info') || $session->has('status') || $session->has('errors')) {
             return $response;
         }
 

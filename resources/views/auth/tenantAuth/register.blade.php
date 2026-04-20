@@ -11,14 +11,6 @@
         </p>
     </div>
 
-    @if($errors->any())
-        <div class="mb-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] text-red-700">
-            @foreach($errors->all() as $error)
-                <p>{{ $error }}</p>
-            @endforeach
-        </div>
-    @endif
-
     <x-form-with-busy method="POST" action="{{ url('/tenant/register') }}" class="space-y-3" :overlay="true" busy-message="{{ __('Submitting your application…') }}">
         @csrf
 
@@ -63,24 +55,80 @@
                     <span class="text-[10px] text-red-500">{{ $message }}</span>
                 @enderror
 
-                <div class="space-y-0.5 border-t border-slate-100 pt-2">
-                    <label for="subscription_months" class="block text-[11px] font-semibold text-slate-900">{{ __('Subscription length') }}</label>
-                    <p class="text-[9px] text-slate-600 sm:text-[10px]">{{ __('Each month adds :days days to your subscription after approval.', ['days' => \App\Models\TenantRegistrationRequest::BILLING_DAYS_PER_MONTH]) }}</p>
-                    <select
-                        id="subscription_months"
-                        name="subscription_months"
-                        required
-                        class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[13px] leading-none text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                    >
-                        @foreach (range(1, 12) as $m)
-                            <option value="{{ $m }}" @selected((string) old('subscription_months', '1') === (string) $m)>
-                                {{ $m }} {{ $m === 1 ? __('month') : __('months') }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @error('subscription_months')
+                @php($termTypeOld = old('subscription_term_type', 'months') === 'days' ? 'days' : 'months')
+                <div class="space-y-2 border-t border-slate-100 pt-2" x-data="{ term: @js($termTypeOld) }">
+                    <div>
+                        <p class="block text-[11px] font-semibold text-slate-900">{{ __('Subscription length') }}</p>
+                        <p class="mt-0.5 text-[9px] text-slate-600 sm:text-[10px]">
+                            {{ __('Choose months (each month = :days days after approval) or enter an exact number of days. Custom days are billed pro-rated from the monthly rate.', ['days' => \App\Models\TenantRegistrationRequest::BILLING_DAYS_PER_MONTH]) }}
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-3 text-[11px]">
+                        <label class="inline-flex cursor-pointer items-center gap-1.5">
+                            <input
+                                type="radio"
+                                name="subscription_term_type"
+                                value="months"
+                                class="h-3.5 w-3.5 text-sky-600 focus:ring-sky-500"
+                                x-model="term"
+                                @checked($termTypeOld === 'months')
+                            />
+                            <span>{{ __('By months') }}</span>
+                        </label>
+                        <label class="inline-flex cursor-pointer items-center gap-1.5">
+                            <input
+                                type="radio"
+                                name="subscription_term_type"
+                                value="days"
+                                class="h-3.5 w-3.5 text-sky-600 focus:ring-sky-500"
+                                x-model="term"
+                                @checked($termTypeOld === 'days')
+                            />
+                            <span>{{ __('Custom days') }}</span>
+                        </label>
+                    </div>
+                    @error('subscription_term_type')
                         <span class="text-[10px] text-red-500">{{ $message }}</span>
                     @enderror
+                    <div x-show="term === 'months'" x-cloak class="space-y-0.5">
+                        <label for="subscription_months" class="block text-[10px] font-medium text-slate-700">{{ __('Months') }}</label>
+                        <select
+                            id="subscription_months"
+                            name="subscription_months"
+                            class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[13px] leading-none text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                            :disabled="term !== 'months'"
+                            :required="term === 'months'"
+                        >
+                            @foreach (range(1, 12) as $m)
+                                <option value="{{ $m }}" @selected((string) old('subscription_months', '1') === (string) $m)>
+                                    {{ $m }} {{ $m === 1 ? __('month') : __('months') }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @error('subscription_months')
+                            <span class="text-[10px] text-red-500">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    <div x-show="term === 'days'" x-cloak class="space-y-0.5">
+                        <label for="subscription_days" class="block text-[10px] font-medium text-slate-700">{{ __('Number of days') }}</label>
+                        <input
+                            id="subscription_days"
+                            type="number"
+                            name="subscription_days"
+                            min="1"
+                            max="{{ \App\Models\TenantRegistrationRequest::MAX_SUBSCRIPTION_DAYS }}"
+                            value="{{ old('subscription_days', '31') }}"
+                            class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[13px] text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                            :disabled="term !== 'days'"
+                            :required="term === 'days'"
+                        />
+                        <p class="text-[9px] text-slate-500 sm:text-[10px]">
+                            {{ __('Max :max days. Total = monthly rate × days ÷ :per month.', ['max' => \App\Models\TenantRegistrationRequest::MAX_SUBSCRIPTION_DAYS, 'per' => \App\Models\TenantRegistrationRequest::BILLING_DAYS_PER_MONTH]) }}
+                        </p>
+                        @error('subscription_days')
+                            <span class="text-[10px] text-red-500">{{ $message }}</span>
+                        @enderror
+                    </div>
                 </div>
             </div>
 
@@ -104,6 +152,7 @@
                             required
                             autofocus
                             placeholder="Azure Haven Resort"
+                            {{ \App\Support\InputHtmlAttributes::title(255) }}
                             class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[13px] text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                         @error('tenant_name')
@@ -122,6 +171,7 @@
                             value="{{ old('primary_domain') }}"
                             placeholder="jeddsresort"
                             required
+                            {{ \App\Support\InputHtmlAttributes::primaryDomain() }}
                             class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[13px] text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                         @error('primary_domain')
@@ -148,6 +198,7 @@
                             value="{{ old('name') }}"
                             required
                             placeholder="Serenity Manager"
+                            {{ \App\Support\InputHtmlAttributes::personName() }}
                             class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[13px] text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                         @error('name')
@@ -166,6 +217,7 @@
                             value="{{ old('email') }}"
                             required
                             placeholder="you@resort.com"
+                            {{ \App\Support\InputHtmlAttributes::email() }}
                             class="mt-0.5 block h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[13px] text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
                         />
                         @error('email')

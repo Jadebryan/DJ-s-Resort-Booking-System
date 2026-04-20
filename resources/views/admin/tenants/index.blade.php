@@ -44,27 +44,36 @@
                 </div>
             @else
                 <div class="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
-                    <div class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0 flex-1">
-                            <p class="text-xs text-gray-500 shrink-0">{{ $tenants->count() }} {{ __('tenant(s)') }}</p>
-                            <div class="relative w-full sm:max-w-xs">
-                                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400" aria-hidden="true">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 110-14 7 7 0 010 14z"/></svg>
-                                </span>
-                                <label for="tenant-table-search" class="sr-only">{{ __('Search tenants') }}</label>
-                                <input id="tenant-table-search" type="search" x-model="tenantFilter" autocomplete="off"
-                                       placeholder="{{ __('Search name, email, domain, plan…') }}"
-                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-800 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                    <x-list-grid-toggle
+                        storage-key="mtrbs.admin.tenants.index.view"
+                        default-view="list"
+                        accent="indigo"
+                        toolbar-row-class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                        content-class="w-full min-w-0 px-4 pt-3 pb-1 sm:px-5">
+                        <x-slot name="toolbar">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0 flex-1">
+                                <p class="text-xs text-gray-500 shrink-0">{{ $tenants->count() }} {{ __('tenant(s)') }}</p>
+                                <div class="relative w-full sm:max-w-xs">
+                                    <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400" aria-hidden="true">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 110-14 7 7 0 010 14z"/></svg>
+                                    </span>
+                                    <label for="tenant-table-search" class="sr-only">{{ __('Search tenants') }}</label>
+                                    <input id="tenant-table-search" type="search" x-model="tenantFilter" autocomplete="off"
+                                           placeholder="{{ __('Search name, email, domain, plan…') }}"
+                                           class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-800 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                                </div>
                             </div>
-                        </div>
-                        <button type="button"
-                                @click="window.dispatchEvent(new CustomEvent('admin-tenants-open-create'))"
-                                class="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm hover:bg-indigo-700 sm:py-1.5">
-                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            {{ __('Add Tenant') }}
-                        </button>
-                    </div>
-                    <div class="w-full min-w-0 overflow-hidden">
+                        </x-slot>
+                        <x-slot name="toolbarEnd">
+                            <button type="button"
+                                    @click="window.dispatchEvent(new CustomEvent('admin-tenants-open-create'))"
+                                    class="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm hover:bg-indigo-700 sm:py-1.5">
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                {{ __('Add Tenant') }}
+                            </button>
+                        </x-slot>
+                        <x-slot name="list">
+                    <div class="w-full min-w-0 overflow-hidden -mx-4 sm:-mx-5">
                         <table class="w-full min-w-0 table-fixed divide-y divide-gray-200 text-left">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -192,6 +201,87 @@
                             </tbody>
                         </table>
                     </div>
+                            </x-slot>
+                            <x-slot name="grid">
+                    <div class="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 pb-4">
+                        @foreach($tenants as $tenant)
+                            @php
+                                $tenantSearchBlob = strtolower(implode(' ', array_filter([
+                                    $tenant->tenant_name,
+                                    $tenant->email,
+                                    $tenant->primaryDomain()?->domain,
+                                    $tenant->plan?->name,
+                                ], fn ($v) => $v !== null && $v !== '')));
+                                $domain = $tenant->primaryDomain()?->domain;
+                            @endphp
+                            <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                                 data-tenant-search="{{ e($tenantSearchBlob) }}"
+                                 x-show="!(tenantFilter || '').trim() || ($el.dataset.tenantSearch || '').includes((tenantFilter || '').toLowerCase().trim())">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
+                                            {{ strtoupper(substr($tenant->tenant_name, 0, 2)) }}
+                                        </div>
+                                        <div class="min-w-0">
+                                            <p class="truncate text-sm font-semibold text-gray-900" title="{{ $tenant->tenant_name }}">{{ $tenant->tenant_name }}</p>
+                                            <p class="truncate text-xs text-gray-500">{{ $tenant->email }}</p>
+                                        </div>
+                                    </div>
+                                    @if($tenant->is_active)
+                                        <span class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">{{ __('Active') }}</span>
+                                    @else
+                                        <span class="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">{{ __('Inactive') }}</span>
+                                    @endif
+                                </div>
+                                <div class="mt-3 space-y-1 text-xs text-gray-600">
+                                    @if($tenant->plan)
+                                        <p><span class="font-medium text-gray-500">{{ __('Plan') }}:</span> {{ $tenant->plan->name }}</p>
+                                    @endif
+                                    @if($domain)
+                                        <p class="truncate"><span class="font-medium text-gray-500">{{ __('Domain') }}:</span>
+                                            <a href="{{ absolute_url_for_tenant_host($domain, '/') }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ $domain }}</a>
+                                        </p>
+                                    @endif
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center justify-end gap-1 border-t border-gray-100 pt-3">
+                                    <button type="button"
+                                            @click="openEditTenant({
+                                                id: {{ $tenant->id }},
+                                                tenant_name: '{{ addslashes($tenant->tenant_name) }}',
+                                                primary_domain: '{{ addslashes($tenant->primaryDomain()?->domain ?? $tenant->domains->first()?->domain ?? '') }}',
+                                                email: '{{ addslashes($tenant->email) }}',
+                                                plan_id: {{ $tenant->plan_id ?? 'null' }},
+                                                subscription_months: {{ (int) ($tenant->subscription_months ?? 1) }}
+                                            })"
+                                            class="inline-flex shrink-0 items-center justify-center rounded border border-gray-200 bg-white p-1.5 text-gray-600 hover:border-indigo-200 hover:text-indigo-700"
+                                            title="{{ __('Edit tenant') }}" aria-label="{{ __('Edit tenant') }}">
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6.232-6.232a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-.828.5l-4 1a1 1 0 01-1.212-1.212l1-4a2 2 0 01.5-.828z"/></svg>
+                                    </button>
+                                    <button type="button"
+                                            @click="openDeleteTenant(@js($tenant->tenant_name), @js(route('admin.tenants.destroy', $tenant)))"
+                                            class="inline-flex shrink-0 items-center justify-center rounded border border-red-100 bg-white p-1.5 text-red-500 hover:bg-red-50"
+                                            title="{{ __('Delete tenant') }}" aria-label="{{ __('Delete tenant') }}">
+                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>
+                                    </button>
+                                    <form method="POST" action="{{ $tenant->is_active ? route('admin.tenants.deactivate', $tenant) : route('admin.tenants.activate', $tenant) }}" class="inline shrink-0">
+                                        @csrf
+                                        <button type="submit"
+                                                class="inline-flex items-center justify-center rounded border p-1.5 {{ $tenant->is_active ? 'border-amber-100 text-amber-600 hover:bg-amber-50' : 'border-emerald-100 text-emerald-600 hover:bg-emerald-50' }}"
+                                                title="{{ $tenant->is_active ? __('Suspend tenant') : __('Resume tenant') }}"
+                                                aria-label="{{ $tenant->is_active ? __('Suspend tenant') : __('Resume tenant') }}">
+                                            @if($tenant->is_active)
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 5.25v13.5m-7.5-13.5v13.5"/></svg>
+                                            @else
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347c-.75.412-1.667-.13-1.667-.986V5.653z"/></svg>
+                                            @endif
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                        </x-slot>
+                    </x-list-grid-toggle>
                 </div>
             @endif
         </div>
@@ -218,7 +308,7 @@
                     <div>
                         <x-admin::input-label for="tenant_name" :value="__('Tenant name')" />
                         <x-admin::text-input id="tenant_name" name="tenant_name" type="text" class="mt-1 block w-full"
-                                             :value="old('tenant_name')" required />
+                                             :value="old('tenant_name')" required constraint="title" />
                         <x-admin::input-error :messages="$errors->get('tenant_name')" class="mt-1" />
                     </div>
                     <div>
@@ -238,7 +328,7 @@
                     <div>
                         <x-admin::input-label for="email" :value="__('Admin email')" />
                         <x-admin::text-input id="email" name="email" type="email" class="mt-1 block w-full"
-                                             :value="old('email')" required />
+                                             :value="old('email')" required constraint="email" />
                         <x-admin::input-error :messages="$errors->get('email')" class="mt-1" />
                     </div>
                     <div class="grid grid-cols-2 gap-4">
@@ -317,12 +407,12 @@
                     <div>
                         <x-admin::input-label for="edit_tenant_name" :value="__('Tenant name')" />
                         <x-admin::text-input id="edit_tenant_name" name="tenant_name" type="text" class="mt-1 block w-full"
-                                             x-model="editTenant.tenant_name" required />
+                                             x-model="editTenant.tenant_name" required constraint="title" />
                     </div>
                     <div>
                         <x-admin::input-label for="edit_primary_domain" :value="__('Preferred site name')" />
                         <x-admin::text-input id="edit_primary_domain" name="primary_domain" type="text" class="mt-1 block w-full"
-                                             x-model="editTenant.primary_domain" required />
+                                             x-model="editTenant.primary_domain" required constraint="primaryDomain" />
                         @php($sfxEdit = trim((string) config('tenancy.tenant_host_suffix', 'localhost')))
                         <p class="mt-1 text-[11px] text-gray-500">
                             @if($sfxEdit !== '')
@@ -335,7 +425,7 @@
                     <div>
                         <x-admin::input-label for="edit_email" :value="__('Admin email')" />
                         <x-admin::text-input id="edit_email" name="email" type="email" class="mt-1 block w-full"
-                                             x-model="editTenant.email" required />
+                                             x-model="editTenant.email" required constraint="email" />
                     </div>
                     <div>
                         <x-admin::input-label for="edit_plan_id" :value="__('Plan (optional)')" />

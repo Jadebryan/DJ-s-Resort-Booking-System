@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
-use App\Models\Tenant;
+use App\Support\TenantPlanFeatures;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -13,15 +13,7 @@ class ActivityLogController extends Controller
 {
     protected function tenantHasActivityLogs(Request $request): bool
     {
-        $tenant = $request->attributes->get('tenant');
-        if (! $tenant instanceof Tenant) {
-            return false;
-        }
-        $plan = $tenant->loadMissing('plan')->plan;
-        if (!$plan) {
-            return false;
-        }
-        return is_array($plan->features) && in_array('activity_logs', $plan->features);
+        return TenantPlanFeatures::hasRequestFeature($request, 'activity_logs');
     }
 
     public function index(Request $request): View|RedirectResponse

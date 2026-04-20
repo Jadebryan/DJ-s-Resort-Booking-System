@@ -40,6 +40,25 @@
             </div>
         </section>
 
+        @php($gr = $githubReleaseSummary ?? [])
+        <section class="rounded-xl border border-emerald-200/80 bg-emerald-50/40 px-4 py-3 shadow-sm">
+            <p class="text-[11px] font-medium uppercase tracking-wide text-emerald-900/90">{{ __('Tenant database migrations — latest version') }}</p>
+            <p class="mt-1 text-sm font-semibold text-emerald-950 font-mono">{{ $gr['version'] ?? config('app.version') }}</p>
+            @if(($gr['source'] ?? '') === 'github')
+                <p class="mt-1 text-xs text-emerald-900/80">
+                    {{ __('From GitHub release: :title (tag :tag)', ['title' => $gr['release_name'] ?? '—', 'tag' => $gr['tag_name'] ?? '—']) }}
+                    @if(!empty($gr['html_url']))
+                        <a href="{{ $gr['html_url'] }}" target="_blank" rel="noopener noreferrer" class="ml-1 font-medium underline">{{ __('View release') }}</a>
+                    @endif
+                </p>
+            @else
+                <p class="mt-1 text-xs text-emerald-900/80">{{ __('Using APP_VERSION from the environment. Set GITHUB_REPO=owner/name to use the latest GitHub Release tag instead.') }}</p>
+            @endif
+            @if(!empty($gr['error']))
+                <p class="mt-2 text-xs text-amber-900">{{ $gr['error'] }}</p>
+            @endif
+        </section>
+
         <section class="rounded-xl border border-gray-200/80 bg-white shadow-sm overflow-hidden">
             <div class="border-b border-gray-100 px-4 py-3 sm:px-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div class="min-w-0 flex-1">

@@ -19,16 +19,9 @@
         .summary-item { background: #f9f9f9; padding: 12px 16px; border-radius: 6px; min-width: 140px; }
         .summary-item strong { display: block; font-size: 18px; }
         .summary-item span { font-size: 11px; color: #666; text-transform: uppercase; }
-        .print-btn { margin-bottom: 16px; }
-        .print-btn button { padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; }
-        .print-btn button:hover { background: #4338ca; }
     </style>
 </head>
 <body>
-    <div class="no-print print-btn">
-        <button type="button" onclick="window.print()">Print / Save as PDF</button>
-    </div>
-
     <h1>Booking Report</h1>
     <p class="meta">Generated {{ $generatedAt->format('F j, Y \a\t g:i A') }}</p>
 

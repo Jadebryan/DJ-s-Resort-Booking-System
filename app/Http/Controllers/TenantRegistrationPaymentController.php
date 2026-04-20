@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use App\Support\InputRules;
 
 class TenantRegistrationPaymentController extends Controller
 {
@@ -67,7 +68,7 @@ class TenantRegistrationPaymentController extends Controller
 
         $validated = $request->validate([
             'payment_provider' => ['required', 'string', 'in:gcash,maya,bank_transfer,other'],
-            'payment_reference' => ['required', 'string', 'max:255'],
+            'payment_reference' => ['required', 'string', 'max:255', "regex:/^[A-Za-z0-9][A-Za-z0-9\\s._\\-]*$/"],
             'payment_notes' => ['nullable', 'string', 'max:2000'],
             'payment_proof' => ['required', 'file', 'image', 'max:1900'],
         ], [

@@ -36,6 +36,14 @@ class TenantSeeder extends Seeder
             $email = 'tenant' . $i . '@example.com';
             $password = 'password';
             $hashedPassword = Hash::make($password);
+            $tenantMetadata = [
+                'promo_enabled' => true,
+                'promo_text' => 'Limited-time offer: Book now and enjoy exclusive weekday rates.',
+                'promo_dismissible' => true,
+                'promo_frequency_days' => 7,
+                'promo_cta_text' => 'View rooms',
+                'promo_cta_url' => '#rooms',
+            ];
 
             $this->command->info("\n🔄 Processing Tenant $i ($dbName)...");
 
@@ -60,7 +68,7 @@ class TenantSeeder extends Seeder
                     'password' => $hashedPassword,
                     'created_at' => Carbon::now(),
                     'updated_at' => Carbon::now(),
-                    'metadata' => json_encode([]),
+                    'metadata' => json_encode($tenantMetadata),
                 ]);
                 $this->command->info("  ✅ Inserted tenant: $slug");
             } catch (\Exception $e) {

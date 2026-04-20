@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Booking;
 use App\Models\Room;
+use App\Services\PaymentService;
+use App\Rules\FullPaymentAmountCoversStay;
+use App\Support\GuestBookingCalendar;
+use App\Support\InputRules;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +28,11 @@ class BookingController extends Controller
 
         $rooms = Room::where('is_available', true)->orderBy('name')->get();
 
-        return view('TenantUser.bookings.index', compact('bookings', 'rooms'));
+        $paymongoEnabled = app(PaymentService::class)->paymongoEnabled();
+
+        $calendarPayload = GuestBookingCalendar::monthPayloadForUser($request, (int) auth('regular_user')->id());
+
+        return view('TenantUser.bookings.index', compact('bookings', 'rooms', 'paymongoEnabled', 'calendarPayload'));
     }
 
     /**
@@ -54,9 +62,9 @@ class BookingController extends Controller
             $request->validate([
                 'check_in' => ['required', 'date', 'after_or_equal:today'],
                 'check_out' => ['required', 'date', 'after:check_in'],
-                'guest_name' => ['nullable', 'string', 'max:255'],
-                'guest_email' => ['nullable', 'email', 'max:255'],
-                'guest_phone' => ['nullable', 'string', 'max:50'],
+                'guest_name' => InputRules::personName(255, false),
+                'guest_email' => ['nullable', 'email:rfc,dns', 'max:254'],
+                'guest_phone' => InputRules::phone(25, false),
                 'notes' => ['nullable', 'string', 'max:1000'],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -126,13 +134,16 @@ class BookingController extends Controller
                 ->with('error', 'Cannot upload proof for a cancelled booking.');
         }
 
+        $booking->load('room');
+        $payableForProof = (float) $booking->amount_payable;
+
         try {
             $request->validate([
-                'payer_full_name' => ['required', 'string', 'max:255'],
-                'payer_gcash_no' => ['required', 'string', 'max:50'],
-                'payer_ref_no' => ['required', 'string', 'max:80'],
+                'payer_full_name' => InputRules::personName(255, true),
+                'payer_gcash_no' => InputRules::paymentMethod(80, true),
+                'payer_ref_no' => InputRules::reference(80, true),
                 'payment_type' => ['required', 'string', 'in:full,partial'],
-                'amount_paid' => ['required', 'numeric', 'min:0'],
+                'amount_paid' => array_merge(InputRules::money(true, 0.0), [new FullPaymentAmountCoversStay(null, $payableForProof)]),
                 'payment_proof' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120'],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -142,6 +153,10 @@ class BookingController extends Controller
                 ->withInput()
                 ->with('openPaymentModal', $booking->id);
         }
+
+        $payable = $payableForProof;
+        $paid = (float) $request->input('amount_paid', 0);
+        $paymentType = (string) $request->input('payment_type', 'full');
 
         $file = $request->file('payment_proof');
         if (!$file) {
@@ -160,7 +175,6 @@ class BookingController extends Controller
         $path = $file->store('payment_proofs', 'public');
         $absolute = Storage::disk('public')->path($path);
         $fileHash = is_file($absolute) ? hash_file('sha256', $absolute) : null;
-        $paymentType = $request->input('payment_type', 'full');
         $booking->update([
             'payment_proof_path' => $path,
             'payment_proof_file_hash' => $fileHash,
@@ -168,7 +182,7 @@ class BookingController extends Controller
             'payer_gcash_no' => $request->input('payer_gcash_no'),
             'payer_ref_no' => $request->input('payer_ref_no'),
             'payment_type' => $paymentType,
-            'is_fully_paid' => $paymentType === 'full',
+            'is_fully_paid' => $paymentType === 'full' || ($paid + 0.009 >= $payable),
             'amount_paid' => $request->input('amount_paid'),
         ]);
         $booking->refresh();

@@ -28,7 +28,7 @@ class AdminPasswordResetController extends Controller
 
     public function sendEmail(Request $request, PasswordResetOtpService $otpService): RedirectResponse
     {
-        $request->validate(['email' => ['required', 'email']]);
+        $request->validate(['email' => ['required', 'email:rfc,dns', 'max:254']]);
         $email = $request->string('email')->toString();
 
         $throttleKey = Str::transliterate(Str::lower($email).'|admin-pwd-otp|'.$request->ip());

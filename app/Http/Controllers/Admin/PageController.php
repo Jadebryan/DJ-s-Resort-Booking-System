@@ -8,12 +8,14 @@ use App\Models\Plan;
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantPlanUpgradeRequest;
+use App\Services\PlatformReleaseVersionService;
 use App\Services\SubscriptionUpgradeProration;
 use Carbon\Carbon;
 use DateTimeZone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Support\InputRules;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -88,6 +90,8 @@ class PageController extends Controller
             return redirect()->route('admin.payments')->with('error', 'Requested plan not found.');
         }
 
+        $wasInactive = ! $tenant->is_active;
+
         $months = max(1, (int) $upgradeRequest->requested_months);
         $proration = SubscriptionUpgradeProration::compute(
             $tenant,
@@ -100,6 +104,9 @@ class PageController extends Controller
         $tenant->plan_id = $requestedPlan->id;
         $tenant->subscription_months = $months;
         $tenant->subscription_ends_at = $proration['new_subscription_ends_at'];
+        if (! $tenant->is_active) {
+            $tenant->is_active = true;
+        }
         $tenant->save();
 
         $upgradeRequest->proration_days_remaining = $proration['days_remaining'];
@@ -116,7 +123,12 @@ class PageController extends Controller
         $upgradeRequest->reviewed_at = now();
         $upgradeRequest->save();
 
-        return redirect()->route('admin.payments')->with('success', 'Upgrade request approved and tenant plan updated.');
+        $msg = 'Request approved and tenant plan updated.';
+        if ($wasInactive) {
+            $msg .= ' The resort site was reactivated.';
+        }
+
+        return redirect()->route('admin.payments')->with('success', $msg);
     }
 
     public function rejectUpgradeRequest(Request $request, TenantPlanUpgradeRequest $upgradeRequest): RedirectResponse
@@ -153,14 +165,14 @@ class PageController extends Controller
     public function storeMaintenanceTicket(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
+            'title' => InputRules::title(255, true),
             'priority' => ['required', Rule::in(array_keys(MaintenanceTicket::priorityLabels()))],
             'status' => ['required', Rule::in([
                 MaintenanceTicket::STATUS_OPEN,
                 MaintenanceTicket::STATUS_IN_PROGRESS,
                 MaintenanceTicket::STATUS_RESOLVED,
             ])],
-            'related_tenant' => ['nullable', 'string', 'max:255'],
+            'related_tenant' => InputRules::title(255, false),
             'description' => ['nullable', 'string', 'max:5000'],
         ]);
 
@@ -207,7 +219,7 @@ class PageController extends Controller
         ]);
     }
 
-    public function settings(): View
+    public function settings(PlatformReleaseVersionService $releaseVersions): View
     {
         $platformSettings = PlatformSetting::instance()->loadMissing('defaultPlan');
         $plans = Plan::query()->orderByDesc('is_active')->orderBy('sort_order')->orderBy('name')->get();
@@ -217,7 +229,9 @@ class PageController extends Controller
             ->values()
             ->all();
 
-        return view('admin.settings.index', compact('platformSettings', 'plans', 'timezoneOptions'));
+        $githubReleaseSummary = $releaseVersions->latestReleaseSummary();
+
+        return view('admin.settings.index', compact('platformSettings', 'plans', 'timezoneOptions', 'githubReleaseSummary'));
     }
 
     public function updateSettings(Request $request): RedirectResponse
@@ -264,10 +278,10 @@ class PageController extends Controller
         $validated = $request->validate([
             'plans' => ['required', 'array', 'min:1'],
             'plans.*.id' => ['required', 'integer', 'exists:plans,id'],
-            'plans.*.name' => ['required', 'string', 'max:255'],
+            'plans.*.name' => InputRules::title(255, true),
             'plans.*.description' => ['nullable', 'string', 'max:5000'],
-            'plans.*.price_monthly' => ['required', 'numeric', 'min:0'],
-            'plans.*.price_yearly' => ['nullable', 'numeric', 'min:0'],
+            'plans.*.price_monthly' => InputRules::money(true, 0.0),
+            'plans.*.price_yearly' => InputRules::money(false, 0.0),
             'plans.*.max_rooms' => ['nullable', 'integer', 'min:1'],
             'plans.*.sort_order' => ['required', 'integer', 'min:0', 'max:9999'],
             'plans.*.is_active' => ['nullable', 'boolean'],

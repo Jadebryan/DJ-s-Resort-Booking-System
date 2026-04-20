@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Support\TenantStaffPermissionDeniedResponse;
 use App\Models\ActivityLog;
 use App\Models\TenantRbacRole;
 use App\Models\TenantModel\Tenant as TenantStaffUser;
 use App\Services\TenantRbacService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -27,14 +29,16 @@ class TenantRbacController extends Controller
         return $user instanceof TenantStaffUser && $user->role === 'admin';
     }
 
-    protected function redirectForbidden(Request $request): RedirectResponse
+    protected function redirectForbidden(Request $request): Response
     {
-        return redirect()
-            ->route('tenant.dashboard')
-            ->with('error', __('Only the resort owner can manage access control.'));
+        return TenantStaffPermissionDeniedResponse::make(
+            $request,
+            __('Access control'),
+            __('Only the resort owner can manage access control and role permissions.')
+        );
     }
 
-    public function index(Request $request): View|RedirectResponse
+    public function index(Request $request): View|RedirectResponse|Response
     {
         if (! $this->ensureResortOwner($request)) {
             return $this->redirectForbidden($request);
@@ -91,7 +95,7 @@ class TenantRbacController extends Controller
         ]);
     }
 
-    public function initialize(Request $request): RedirectResponse
+    public function initialize(Request $request): RedirectResponse|Response
     {
         if (! $this->ensureResortOwner($request)) {
             return $this->redirectForbidden($request);
@@ -113,7 +117,7 @@ class TenantRbacController extends Controller
             ->with('success', __('Default roles are ready. Assign staff roles under Staff & Accounts.'));
     }
 
-    public function update(Request $request, TenantRbacRole $rbacRole): RedirectResponse
+    public function update(Request $request): RedirectResponse|Response
     {
         if (! $this->ensureResortOwner($request)) {
             return $this->redirectForbidden($request);
@@ -121,6 +125,11 @@ class TenantRbacController extends Controller
         if (! $this->rbac->rbacTablesReady()) {
             return redirect()->route('tenant.rbac.index')->with('error', __('Run tenant migrations first.'));
         }
+
+        $roleParam = $request->route('rbacRole');
+        $rbacRole = $roleParam instanceof TenantRbacRole
+            ? $roleParam
+            : TenantRbacRole::query()->findOrFail($roleParam);
 
         $defs = $rbacRole->kind === TenantRbacRole::KIND_CUSTOMER
             ? $this->rbac->customerResourceDefinitions()

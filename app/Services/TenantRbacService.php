@@ -144,7 +144,7 @@ class TenantRbacService
         $staffReception = [
             'dashboard' => ['read'],
             'rooms' => ['read'],
-            'bookings' => ['read', 'confirm', 'cancel'],
+            'bookings' => ['read', 'update', 'confirm', 'cancel'],
             'reports' => ['read'],
             'branding' => [],
             'staff' => [],

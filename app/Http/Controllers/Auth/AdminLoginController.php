@@ -24,7 +24,7 @@ class AdminLoginController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => 'required',
         ]);
 

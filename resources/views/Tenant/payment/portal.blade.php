@@ -80,6 +80,13 @@
             }
          }"
          @keydown.escape.window="upgradeModalOpen = false">
+        @if($plan && $daysRemaining !== null && $daysRemaining < 0)
+            <div class="rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900 shadow-sm" role="alert">
+                <p class="font-semibold">{{ __('Your subscription has ended') }}</p>
+                <p class="mt-1 text-rose-800/90">{{ __('Use “Renew subscription” below to send payment details to platform admin for review.') }}</p>
+            </div>
+        @endif
+
         <div class="rounded-xl border border-gray-200/80 bg-white p-6 shadow-sm">
             <h2 class="text-lg font-semibold text-gray-800">Current subscription</h2>
             @if($plan)
@@ -106,11 +113,13 @@
                     </div>
                     <div class="rounded-lg border border-gray-200 bg-gray-50 p-3">
                         <p class="text-xs text-gray-500">Remaining</p>
-                        <p class="mt-1 text-sm font-semibold {{ ($daysRemaining !== null && $daysRemaining <= 7) ? 'text-amber-600' : 'text-gray-900' }}">
+                        <p class="mt-1 text-sm font-semibold {{ ($daysRemaining !== null && $daysRemaining < 0) ? 'text-red-600' : (($daysRemaining !== null && $daysRemaining <= 7) ? 'text-amber-600' : 'text-gray-900') }}">
                             @if($daysRemaining === null)
                                 N/A
-                            @elseif($daysRemaining <= 0)
-                                Expired
+                            @elseif($daysRemaining < 0)
+                                {{ __('Expired') }}
+                            @elseif($daysRemaining === 0)
+                                {{ __('Ends today') }}
                             @else
                                 {{ $daysRemaining }} day{{ $daysRemaining === 1 ? '' : 's' }}
                             @endif
@@ -118,7 +127,7 @@
                     </div>
                 </div>
 
-                <div class="mt-5 flex flex-wrap items-center gap-3">
+                <div id="subscription-renew" class="mt-5 flex flex-wrap items-center gap-3 scroll-mt-28">
                     <button type="button"
                        data-plan-id="{{ $plan?->id }}"
                        data-plan-name="{{ $plan?->name }}"
@@ -289,6 +298,7 @@
                             <label for="payment_method" class="block text-sm font-medium text-gray-700">Payment method</label>
                             <input id="payment_method" name="payment_method" type="text" value="{{ old('payment_method') }}"
                                    placeholder="GCash, Maya, Bank Transfer, etc."
+                                   {{ \App\Support\InputHtmlAttributes::paymentMethod(80) }}
                                    class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
                             @error('payment_method') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
@@ -297,6 +307,7 @@
                             <label for="payment_reference" class="block text-sm font-medium text-gray-700">Payment reference (optional)</label>
                             <input id="payment_reference" name="payment_reference" type="text" value="{{ old('payment_reference') }}"
                                    placeholder="Reference number / transaction ID"
+                                   {{ \App\Support\InputHtmlAttributes::paymentReference(120) }}
                                    class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
                             @error('payment_reference') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
@@ -312,6 +323,7 @@
                         <div>
                             <label for="payment_notes" class="block text-sm font-medium text-gray-700">Additional details</label>
                             <textarea id="payment_notes" name="payment_notes" rows="3"
+                                      {{ \App\Support\InputHtmlAttributes::textarea(1500) }}
                                       class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
                                       placeholder="Anything superadmin should check before approving">{{ old('payment_notes') }}</textarea>
                             @error('payment_notes') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror

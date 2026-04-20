@@ -91,15 +91,6 @@
             customerDefs: @js($customerDefs ?? []),
             openEditId: @js(session('openEditRoleId')),
          })">
-        @if (session('success'))
-            <div class="rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">{{ session('success') }}</div>
-        @endif
-        @if ($errors->any())
-            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                <ul class="list-disc pl-5 space-y-1">@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
-            </div>
-        @endif
-
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="grid grid-cols-3 gap-3 sm:gap-4">
                 <div class="rounded-xl border border-gray-200/80 bg-white p-4 shadow-sm">
@@ -256,9 +247,9 @@
 
         {{-- Edit modal --}}
         <div x-show="modalOpen" x-cloak
-             class="fixed inset-0 z-50 overflow-y-auto px-4 py-8"
+             class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-8"
              x-transition.opacity>
-            <div class="fixed inset-0 bg-black/50" @click="modalOpen = false"></div>
+            <div class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm" @click="modalOpen = false"></div>
             <div class="relative mx-auto max-w-4xl rounded-xl bg-white p-6 shadow-xl">
                 <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -280,7 +271,7 @@
                         {{ __('Reset') }}
                     </button>
                     <button type="button" @click="disableAll()"
-                            class="rounded-lg bg-orange-600 px-3 py-2 text-sm font-medium text-white hover:bg-orange-700">
+                            class="rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700">
                         {{ __('Disable all') }}
                     </button>
                 </div>
@@ -300,7 +291,7 @@
                                            x-text="(matrix[card.key] || []).length + ' / ' + card.actions.length + ' {{ __('actions') }}'"></p>
                                     </div>
                                     <button type="button" @click="disableResource(card.key)"
-                                            class="shrink-0 text-[11px] font-medium text-orange-700 hover:underline">{{ __('Off') }}</button>
+                                            class="shrink-0 text-[11px] font-medium text-teal-700 hover:underline">{{ __('Off') }}</button>
                                 </div>
                                 <ul class="mt-3 space-y-2">
                                     <template x-for="act in card.actions" :key="card.key + ':' + act">

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Tenant;
+use App\Services\PlatformReleaseVersionService;
 use App\Services\TenantMigrationRunner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -31,14 +32,14 @@ class UpdateTenantJob implements ShouldQueue, ShouldBeUnique
         return 'landlord-tenant-update-'.$this->landlordTenantId;
     }
 
-    public function handle(TenantMigrationRunner $runner): void
+    public function handle(TenantMigrationRunner $runner, PlatformReleaseVersionService $releases): void
     {
         $tenant = Tenant::query()->find($this->landlordTenantId);
         if (! $tenant) {
             return;
         }
 
-        $target = config('app.version');
+        $target = $releases->latestSchemaVersion();
         $result = $runner->run($tenant, $target);
 
         if ($result['success']) {

@@ -27,7 +27,7 @@ class RegularUserLoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'string'],
         ];
     }

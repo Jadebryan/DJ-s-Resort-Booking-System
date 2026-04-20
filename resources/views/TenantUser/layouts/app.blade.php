@@ -18,10 +18,57 @@
     <!-- Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    @php
+        $themePrimary = $tenant instanceof \App\Models\Tenant ? (string) ($tenant->primary_color ?? '') : '';
+        $themeSecondary = $tenant instanceof \App\Models\Tenant ? (string) ($tenant->secondary_color ?? '') : '';
+        $themePrimary = preg_match('/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/', $themePrimary) ? $themePrimary : '#0f766e';
+        $themeSecondary = preg_match('/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/', $themeSecondary) ? $themeSecondary : '#115e59';
+        if (strlen($themePrimary) === 4) {
+            $themePrimary = '#' . $themePrimary[1] . $themePrimary[1] . $themePrimary[2] . $themePrimary[2] . $themePrimary[3] . $themePrimary[3];
+        }
+        if (strlen($themeSecondary) === 4) {
+            $themeSecondary = '#' . $themeSecondary[1] . $themeSecondary[1] . $themeSecondary[2] . $themeSecondary[2] . $themeSecondary[3] . $themeSecondary[3];
+        }
+        [$pr, $pg, $pb] = sscanf($themePrimary, '#%02x%02x%02x');
+        [$sr, $sg, $sb] = sscanf($themeSecondary, '#%02x%02x%02x');
+    @endphp
+    <style>
+        .tenant-themed {
+            --tenant-primary: {{ $themePrimary }};
+            --tenant-secondary: {{ $themeSecondary }};
+            --tenant-primary-rgb: {{ (int) $pr }}, {{ (int) $pg }}, {{ (int) $pb }};
+            --tenant-secondary-rgb: {{ (int) $sr }}, {{ (int) $sg }}, {{ (int) $sb }};
+        }
+        .tenant-themed .bg-teal-500 { background-color: var(--tenant-primary) !important; }
+        .tenant-themed .bg-teal-600 { background-color: var(--tenant-primary) !important; }
+        .tenant-themed .hover\:bg-teal-700:hover { background-color: var(--tenant-secondary) !important; }
+        .tenant-themed .bg-teal-100 { background-color: rgba(var(--tenant-primary-rgb), 0.14) !important; }
+        .tenant-themed .bg-teal-50 { background-color: rgba(var(--tenant-primary-rgb), 0.08) !important; }
+        .tenant-themed .bg-teal-100\/80 { background-color: rgba(var(--tenant-primary-rgb), 0.16) !important; }
+        .tenant-themed .bg-teal-50\/60 { background-color: rgba(var(--tenant-primary-rgb), 0.10) !important; }
+        .tenant-themed .text-teal-600,
+        .tenant-themed .text-teal-700,
+        .tenant-themed .text-teal-800 { color: var(--tenant-primary) !important; }
+        .tenant-themed .border-teal-200,
+        .tenant-themed .border-teal-100,
+        .tenant-themed .border-teal-500 { border-color: rgba(var(--tenant-primary-rgb), 0.45) !important; }
+        .tenant-themed .ring-teal-200 { --tw-ring-color: rgba(var(--tenant-primary-rgb), 0.35) !important; }
+        .tenant-themed .focus\:ring-teal-500:focus { --tw-ring-color: rgba(var(--tenant-primary-rgb), 0.45) !important; }
+        .tenant-themed .focus\:border-teal-500:focus { border-color: var(--tenant-primary) !important; }
+        .tenant-themed .accent-teal-600 { accent-color: var(--tenant-primary) !important; }
+        .tenant-themed .hover\:bg-teal-50:hover { background-color: rgba(var(--tenant-primary-rgb), 0.10) !important; }
+        .tenant-themed .hover\:bg-teal-100\/80:hover { background-color: rgba(var(--tenant-primary-rgb), 0.18) !important; }
+        .tenant-themed .hover\:text-teal-700:hover { color: var(--tenant-primary) !important; }
+        .tenant-themed .from-teal-50\/90 {
+            --tw-gradient-from: rgba(var(--tenant-primary-rgb), 0.10) var(--tw-gradient-from-position) !important;
+            --tw-gradient-to: rgba(var(--tenant-primary-rgb), 0) var(--tw-gradient-to-position) !important;
+            --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+        }
+    </style>
 </head>
-<body class="antialiased bg-gray-50 font-sans"
+<body class="tenant-themed h-[100dvh] overflow-hidden antialiased bg-gray-50 font-sans"
       x-data="dashboardShell('layout-rail-tenant-user')">
-<div class="flex min-h-screen overflow-x-hidden">
+<div class="flex h-[100dvh] min-h-0 overflow-hidden">
 
     {{-- Sidebar backdrop (mobile) --}}
     <div x-show="sidebarOpen" x-transition:enter="transition-opacity ease-out" x-transition:leave="transition-opacity ease-in"
@@ -31,13 +78,13 @@
     @include('TenantUser.layouts.navigation')
 
     {{-- Main content area --}}
-    <div class="flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-out lg:pl-64"
-         :class="{ 'lg:!pl-16': sidebarCollapsed }"
+    <div data-dashboard-main-rail class="flex min-h-0 min-w-0 flex-1 flex-col transition-[padding] duration-200 ease-out lg:pl-[calc(0.75rem+13rem+0.75rem)]"
+         :class="{ 'lg:!pl-20': sidebarCollapsed }"
          {{ $contentAttributes ?? '' }}>
-        {{-- Top bar --}}
-        <header class="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-gray-200/80 bg-white/95 px-4 sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        {{-- Top bar: stays visible; only <main> scrolls below --}}
+        <header class="z-30 mx-3 mt-3 flex h-16 shrink-0 items-center justify-between gap-3 rounded-2xl border border-white/50 bg-white/40 px-4 shadow-lg shadow-slate-900/[0.07] ring-1 ring-slate-900/[0.04] backdrop-blur-xl sm:mx-4 sm:px-6">
             <div class="flex min-w-0 flex-1 items-center gap-3">
-                <button type="button" @click="sidebarOpen = true" class="rounded-lg p-2 text-gray-600 hover:bg-gray-100 lg:hidden" aria-label="{{ __('Open menu') }}">
+                <button type="button" @click="sidebarOpen = true" class="rounded-lg p-2 text-gray-600 hover:bg-white/50 lg:hidden" aria-label="{{ __('Open menu') }}">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
                 @isset($header)
@@ -47,6 +94,7 @@
                 @endisset
             </div>
             <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+            @include('TenantUser.layouts.context-help')
             <div class="relative"
                  x-data="{
                     open: false,
@@ -84,7 +132,7 @@
                  @click.outside="open = false">
                 <button type="button"
                         @click="open = !open; if (open) { refresh(); markSeen(); }"
-                        class="relative rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                        class="relative rounded-xl p-2 text-gray-500 transition hover:bg-white/50 hover:text-gray-700 hover:shadow-sm"
                         aria-label="Notifications">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                     <template x-if="badgeCount > 0">
@@ -117,7 +165,7 @@
                     </template>
                 </div>
             </div>
-            <div class="flex shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50/50 pl-2 pr-3 py-1.5 min-w-0 max-w-[10rem] sm:max-w-none">
+            <div class="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200/60 bg-white/55 pl-2 pr-3 py-1.5 shadow-sm backdrop-blur-sm min-w-0 max-w-[10rem] sm:max-w-none">
                 <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-700">
                     {{ strtoupper(substr(auth('regular_user')->user()->name ?? 'U', 0, 1)) }}
                 </div>
@@ -127,14 +175,14 @@
         </header>
 
         {{-- Page content --}}
-        <main class="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+        <main class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
             @include('TenantUser.layouts.context-hints')
             {{ $slot }}
         </main>
     </div>
 </div>
 @include('components.toast-container')
-<span class="pointer-events-none hidden lg:!pl-16 lg:pl-64 lg:w-16 lg:w-64 lg:max-w-none" aria-hidden="true"></span>
+<span class="pointer-events-none hidden lg:!pl-20 lg:pl-[calc(0.75rem+13rem+0.75rem)] lg:w-16 lg:w-52 lg:max-w-none" aria-hidden="true"></span>
 @livewireScripts
 </body>
 </html>

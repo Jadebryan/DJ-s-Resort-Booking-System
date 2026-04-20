@@ -12,8 +12,12 @@
         }
     }
 
-    $message = session('success') ?: session('error') ?: session('info') ?: $statusAsMessage;
-    $type = session('error') ? 'error' : ((session('success') || $statusAsMessage) ? 'success' : 'info');
+    $validationMessage = null;
+    if (!session('success') && !session('error') && !session('info') && !$statusAsMessage && $errors->any()) {
+        $validationMessage = __('Please review the form and fix the highlighted fields.');
+    }
+    $message = session('success') ?: session('error') ?: session('info') ?: $statusAsMessage ?: $validationMessage;
+    $type = session('error') || $validationMessage ? 'error' : ((session('success') || $statusAsMessage) ? 'success' : 'info');
 @endphp
 @if($message)
 <div x-data="{

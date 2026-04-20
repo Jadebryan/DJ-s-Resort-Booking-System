@@ -18,7 +18,8 @@
     @stack('styles')
     @livewireStyles
 </head>
-<body class="overflow-x-hidden scroll-smooth font-landing bg-[#f4f2ee] text-slate-900 antialiased">
+<body class="overflow-x-hidden scroll-smooth font-landing bg-gradient-to-b from-slate-50 via-slate-50 to-slate-100 text-slate-900 antialiased">
+    @include('components.toast-container')
     @yield('body')
 
     @livewireScripts

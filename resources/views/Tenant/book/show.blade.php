@@ -25,6 +25,33 @@
 
 @section('body')
 <div class="min-h-screen" style="background-color:#f4f2ee;background-image:radial-gradient(ellipse 120% 80% at 100% -20%, color-mix(in srgb, {{ $primary }} 12%, transparent), transparent 55%),radial-gradient(ellipse 90% 70% at -10% 60%, color-mix(in srgb, {{ $primary }} 8%, transparent), transparent 50%);">
+    @if (session('success') || session('error'))
+        <div class="fixed inset-x-0 top-4 z-[80] flex justify-center px-4">
+            <div class="w-full max-w-2xl rounded-2xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md"
+                 style="background: rgba(255,255,255,.92); border-color: {{ $primary }}33;">
+                @if(session('success'))
+                    <p class="font-semibold text-emerald-700">{{ session('success') }}</p>
+                @endif
+                @if(session('error'))
+                    <p class="font-semibold text-rose-700">{{ session('error') }}</p>
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="fixed inset-x-0 top-4 z-[80] flex justify-center px-4">
+            <div class="w-full max-w-2xl rounded-2xl border border-rose-200 bg-rose-50/95 px-4 py-3 text-sm shadow-lg backdrop-blur-md">
+                <p class="font-semibold text-rose-800">{{ __('Please fix the errors and try again.') }}</p>
+                <ul class="mt-1 list-disc pl-5 text-rose-700">
+                    @foreach($errors->all() as $err)
+                        <li>{{ $err }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        </div>
+    @endif
+
     <header class="sticky top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
         <div class="mx-auto flex max-w-6xl min-w-0 items-center justify-between gap-4 px-4 py-3.5 sm:px-6 lg:px-8">
             <a href="{{ tenant_url('/') }}" class="font-display min-w-0 truncate text-lg font-semibold tracking-tight text-slate-900 transition hover:opacity-75 sm:text-xl">{{ $siteName }}</a>
@@ -78,29 +105,62 @@
             <h2 class="font-display text-xl font-semibold text-slate-900">{{ __('Reserve your stay') }}</h2>
             <p class="mt-1 text-sm text-slate-500">{{ __('Choose dates and send a request—the resort will confirm availability.') }}</p>
 
-            @if ($errors->any())
-                <ul class="mb-6 mt-6 list-inside list-disc rounded-2xl border border-red-200/80 bg-red-50/90 p-4 text-sm text-red-800">
-                    @foreach ($errors->all() as $e)
-                        <li>{{ $e }}</li>
-                    @endforeach
-                </ul>
-            @endif
-
-            <x-form-with-busy method="POST" action="{{ tenant_url('book') }}" class="booking-form-fields mt-8 space-y-6" :overlay="true" busy-message="{{ __('Sending your booking…') }}">
+            <x-form-with-busy
+                method="POST"
+                action="{{ tenant_url('book') }}"
+                enctype="multipart/form-data"
+                class="booking-form-fields mt-8 space-y-6"
+                :overlay="true"
+                busy-message="{{ __('Sending your booking…') }}"
+                x-data="{
+                    checkIn: @js(old('check_in', request('check_in'))),
+                    checkOut: @js(old('check_out', request('check_out'))),
+                    rate: @js((float) $room->price_per_night),
+                    nights() {
+                        if (!this.checkIn || !this.checkOut) return 0;
+                        const a = new Date(this.checkIn);
+                        const b = new Date(this.checkOut);
+                        if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+                        const diff = Math.ceil((b.getTime() - a.getTime()) / 86400000);
+                        return Math.max(0, diff);
+                    },
+                    payable() {
+                        const n = this.nights();
+                        if (!this.rate || n <= 0) return 0;
+                        return this.rate * n;
+                    },
+                    money(v) {
+                        try { return Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
+                        catch (e) { return String(v || 0); }
+                    },
+                }"
+            >
                 @csrf
                 <input type="hidden" name="room_id" value="{{ $room->id }}">
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <div>
                         <label for="check_in" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Check-in') }}</label>
-                        <input type="date" id="check_in" name="check_in" value="{{ old('check_in', request('check_in')) }}" min="{{ date('Y-m-d') }}" required
+                        <input type="date" id="check_in" name="check_in" x-model="checkIn" value="{{ old('check_in', request('check_in')) }}" min="{{ date('Y-m-d') }}" required
                                class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
                     </div>
                     <div>
                         <label for="check_out" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Check-out') }}</label>
-                        <input type="date" id="check_out" name="check_out" value="{{ old('check_out', request('check_out')) }}" required
+                        <input type="date" id="check_out" name="check_out" x-model="checkOut" value="{{ old('check_out', request('check_out')) }}" required
                                class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
                     </div>
+                </div>
+
+                <div class="rounded-2xl border border-slate-100 bg-slate-50/80 px-4 py-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-semibold text-slate-900">{{ __('Amount payable') }}</p>
+                        <p class="font-display text-lg font-semibold tabular-nums text-teal-700">
+                            ₱<span x-text="money(payable())"></span>
+                        </p>
+                    </div>
+                    <p class="mt-1 text-xs text-slate-600">
+                        <span x-text="nights() ? (nights() + ' night(s) × ₱' + money(rate) + '/night') : @js(__('Select your dates to calculate the total.'))"></span>
+                    </p>
                 </div>
 
                 @if($user)
@@ -112,16 +172,19 @@
                         <div>
                             <label for="guest_name" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Your name') }}</label>
                             <input type="text" id="guest_name" name="guest_name" value="{{ old('guest_name') }}" required
+                                   {{ \App\Support\InputHtmlAttributes::personName() }}
                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
                         </div>
                         <div>
                             <label for="guest_email" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Email') }}</label>
                             <input type="email" id="guest_email" name="guest_email" value="{{ old('guest_email') }}" required
+                                   {{ \App\Support\InputHtmlAttributes::email() }}
                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
                         </div>
                         <div>
                             <label for="guest_phone" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Phone') }} <span class="font-normal text-slate-400">({{ __('optional') }})</span></label>
                             <input type="text" id="guest_phone" name="guest_phone" value="{{ old('guest_phone') }}"
+                                   {{ \App\Support\InputHtmlAttributes::phone() }}
                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
                         </div>
                     </div>
@@ -129,7 +192,70 @@
 
                 <div>
                     <label for="notes" class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Notes') }} <span class="font-normal text-slate-400">({{ __('optional') }})</span></label>
-                    <textarea id="notes" name="notes" rows="3" class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition" placeholder="{{ __('Special requests…') }}">{{ old('notes') }}</textarea>
+                    <textarea id="notes" name="notes" rows="3" {{ \App\Support\InputHtmlAttributes::textarea(500) }} class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition" placeholder="{{ __('Special requests…') }}">{{ old('notes') }}</textarea>
+                </div>
+
+                <div class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-900">{{ __('Payment details (required)') }}</p>
+                        <p class="mt-0.5 text-xs text-slate-500">{{ __('Upload proof now so your request includes payment right away.') }}</p>
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Payment type') }}</label>
+                        <select name="payment_type" required class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
+                            <option value="">{{ __('Select') }}</option>
+                            <option value="full" @selected(old('payment_type') === 'full')>{{ __('Full payment') }}</option>
+                            <option value="partial" @selected(old('payment_type') === 'partial')>{{ __('Partial payment') }}</option>
+                        </select>
+                        @error('payment_type')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div>
+                        <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Full name') }}</label>
+                        <input name="payer_full_name" type="text" value="{{ old('payer_full_name', $user?->name) }}" required
+                               {{ \App\Support\InputHtmlAttributes::personName() }}
+                               class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
+                        @error('payer_full_name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Payment method') }}</label>
+                            <select name="payer_gcash_no" required class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
+                                <option value="">{{ __('Select method') }}</option>
+                                @foreach (['GCash', 'Maya', 'GrabPay', 'ShopeePay', 'Coins.ph', 'BPI Online', 'BDO Online', 'UnionBank Online', 'PNB Digital', 'Other wallet / bank'] as $method)
+                                    <option value="{{ $method }}" @selected(old('payer_gcash_no') === $method)>{{ $method }}</option>
+                                @endforeach
+                            </select>
+                            @error('payer_gcash_no')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Ref. No.') }}</label>
+                            <input name="payer_ref_no" type="text" value="{{ old('payer_ref_no') }}" required
+                                   {{ \App\Support\InputHtmlAttributes::reference() }}
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
+                            @error('payer_ref_no')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Amount paid (PHP)') }}</label>
+                            <input name="amount_paid" type="number" step="0.01" min="0" value="{{ old('amount_paid') }}" required
+                                   {{ \App\Support\InputHtmlAttributes::money() }}
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 transition">
+                            <p class="mt-1 text-xs text-slate-500">{{ __('Tip: you can pay full or partial—enter what you sent.') }}</p>
+                            @error('amount_paid')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-slate-700">{{ __('Payment proof') }}</label>
+                            <input name="payment_proof" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-700 transition file:mr-3 file:rounded-xl file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-100">
+                            <p class="mt-1 text-xs text-slate-500">{{ __('JPG/PNG, max 5MB.') }}</p>
+                            @error('payment_proof')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
                 </div>
 
                 <x-busy-submit class="w-full rounded-2xl py-4 text-base font-semibold text-white shadow-md transition hover:brightness-105 hover:shadow-lg" style="background-color: {{ $primary }};" busy-text="{{ __('Submitting…') }}">
@@ -151,6 +277,10 @@
                     var d = new Date(minOut);
                     d.setDate(d.getDate() + 1);
                     checkOut.min = d.toISOString().slice(0, 10);
+                    if (checkOut.value && checkOut.value < checkOut.min) {
+                        checkOut.value = '';
+                        checkOut.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
                 }
             });
         }
