@@ -43,13 +43,15 @@ class DomainController extends Controller
             return redirect()->route('tenant.domains.index')
                 ->withErrors(['domain' => 'This domain is already in use.'])->withInput();
         }
-        TenantDomain::create([
+        $created = TenantDomain::create([
             'tenant_id' => $tenant->id,
             'domain' => $domain,
             'is_primary' => $tenant->domains()->count() === 0,
         ]);
+        $visitUrl = $created->landingUrl();
+
         return redirect()->route('tenant.domains.index')
-            ->with('success', 'Domain added. Point your DNS A record to this server.');
+            ->with('success', __('Domain added. Open :url to verify the public site (production: point DNS A/AAAA to this server).', ['url' => $visitUrl]));
     }
 
     public function destroy(Request $request, TenantDomain $domain): RedirectResponse

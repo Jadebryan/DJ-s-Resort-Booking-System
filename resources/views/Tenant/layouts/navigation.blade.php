@@ -176,7 +176,7 @@
                 <a href="{{ $url('/support') }}" title="{{ __('Support') }}"
                    class="flex items-center gap-3 rounded-r-lg px-3 py-2.5 text-sm font-medium transition {{ $isActive('tenant.support.*') ? 'bg-teal-500 text-white shadow-sm' : 'text-gray-600 hover:bg-white/45 hover:text-gray-900' }}"
                    :class="{ 'lg:justify-center lg:px-2': sidebarCollapsed }">
-                    <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-1.414 1.414m0 0A8.003 8.003 0 005.05 16.95m11.9-9.9L15.536 8.464m0 0A5 5 0 018.464 15.536m7.072-7.072L12 12m0 0l-1.5 4.5L12 12zm0 0l4.5-1.5L12 12z"/></svg>
+                    <x-icons.headset />
                     <span class="truncate" :class="{ 'lg:hidden': sidebarCollapsed }">{{ __('Support') }}</span>
                     @if($openSupportCount > 0)
                         <span class="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 shadow-sm ring-1 ring-amber-200"

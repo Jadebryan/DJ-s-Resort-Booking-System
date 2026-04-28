@@ -294,6 +294,7 @@
                 </div>
 
                 @include('Tenant.layouts.context-help')
+                <x-page-refresh-button />
 
                 <div class="relative"
                      x-data="{

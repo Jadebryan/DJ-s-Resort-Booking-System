@@ -73,9 +73,12 @@ Route::domain('{tenant_domain}')
             Route::post('/user/reset-password', [\App\Http\Controllers\Auth\tenantUserAuthController\NewPasswordController::class, 'store'])->name('user.password.store');
         });
 
-        Route::get('/book', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'index'])->name('tenant.book.index');
-        Route::get('/book/{room}', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'show'])->name('tenant.book.show')->where('room', '[0-9]+');
-        Route::post('/book', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'store'])->name('tenant.book.store');
+        // Booking requires a tenant user account (regular_user). Guests can browse the landing page but must sign in to book.
+        Route::middleware(['auth:regular_user'])->group(function () {
+            Route::get('/book', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'index'])->name('tenant.book.index');
+            Route::get('/book/{room}', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'show'])->name('tenant.book.show')->where('room', '[0-9]+');
+            Route::post('/book', [\App\Http\Controllers\Tenant\PublicBookingController::class, 'store'])->name('tenant.book.store');
+        });
 
         Route::get('/bookings/{booking}/receipt/guest', [\App\Http\Controllers\Tenant\BookingController::class, 'guestReceipt'])
             ->middleware('signed')

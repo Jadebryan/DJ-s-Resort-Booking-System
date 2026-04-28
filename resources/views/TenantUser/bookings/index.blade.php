@@ -61,6 +61,22 @@
         bookCheckOut: '',
         roomsForBooking: @js($roomsForBooking),
         bookingsForDetails: @js($bookingsForDetails),
+        openBookFromQueryParam() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                const raw = params.get('book_room_id');
+                if (!raw) return;
+                const id = Number(raw);
+                if (!Number.isFinite(id) || id <= 0) return;
+                this.openBookModal(id);
+
+                // Clean the URL so refresh doesn't re-open automatically.
+                params.delete('book_room_id');
+                const qs = params.toString();
+                const next = window.location.pathname + (qs ? ('?' + qs) : '') + (window.location.hash || '');
+                window.history.replaceState({}, '', next);
+            } catch (_) {}
+        },
         openBookModal(roomId) {
             this.selectedRoom = this.roomsForBooking.find(r => r.id == roomId) || null;
             this.bookModalOpen = !!this.selectedRoom;
@@ -118,7 +134,7 @@
             }
         }
     }" @keydown.escape.window="bookModalOpen = false; browseModalOpen = false; payModalOpen = false; detailsModalOpen = false; selectedRoom = null; payingBookingId = null; selectedBooking = null"
-       x-init="$nextTick(() => { @js($openPaymentModal) && openPayModal(@js($openPaymentModal)); @js($openDetailsModal) && openDetailsModal(@js($openDetailsModal)); @js($openBookModalRoomId) && openBookModal(@js($openBookModalRoomId)); })">
+       x-init="$nextTick(() => { openBookFromQueryParam(); @js($openPaymentModal) && openPayModal(@js($openPaymentModal)); @js($openDetailsModal) && openDetailsModal(@js($openDetailsModal)); @js($openBookModalRoomId) && openBookModal(@js($openBookModalRoomId)); })">
 
         @if(!empty($calendarPayload))
             @php
@@ -132,7 +148,7 @@
                     'bookingCellListUrl' => $bookingCellListUrl,
                     'bookingCellAnchorPrefix' => '#guest-booking-',
                     'calendarSubtitle' => __('Your stays overlapping this month.'),
-                    'newBookingUrl' => tenant_url('book'),
+                    'newBookingOnClick' => 'browseModalOpen = true',
                 ]))
             </div>
         @endif

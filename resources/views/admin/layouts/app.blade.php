@@ -107,6 +107,7 @@
                     </div>
                 </div>
                 @include('admin.layouts.context-help')
+                <x-page-refresh-button />
                 <div class="relative"
                      x-data="{
                         open: false,

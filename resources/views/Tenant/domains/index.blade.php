@@ -13,11 +13,18 @@
                 $siteHost = $domains->firstWhere('is_primary', true) ?? $domains->first();
             @endphp
             <p class="mb-4 text-gray-600">
-                Add hostnames that should open this resort (e.g. <strong>www.myresort.com</strong> or <strong>stay.myresort.localhost</strong>).
+                {{ __('Add hostnames that should open this resort (e.g.') }}
+                <strong>www.myresort.com</strong> {{ __('or') }}
+                <strong>stay.myresort.{{ config('tenancy.tenant_host_suffix', 'localhost') }}</strong>).
                 @if($siteHost)
-                    Primary site: <code class="rounded bg-gray-100 px-1.5 py-0.5 text-sm text-gray-800">//{{ $siteHost->domain }}</code>
+                    @php($primaryUrl = $siteHost->landingUrl())
+                    <span class="block sm:inline sm:before:content-['\00a0']">{{ __('Primary site:') }}</span>
+                    <a href="{{ $primaryUrl }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex max-w-full items-center gap-1 break-all rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm text-teal-700 underline decoration-teal-300 hover:text-teal-800 hover:decoration-teal-600">
+                        {{ $primaryUrl }}
+                    </a>
                 @else
-                    Add at least one domain so guests can reach you.
+                    {{ __('Add at least one domain so guests can reach you.') }}
                 @endif
             </p>
             <form method="POST" action="{{ tenant_url('domains') }}" class="mb-6 flex flex-wrap gap-2">
@@ -46,8 +53,14 @@
                         </thead>
                         <tbody class="divide-y divide-gray-200 bg-white">
                             @foreach($domains as $d)
+                                @php($rowUrl = $d->landingUrl())
                                 <tr>
-                                    <td class="px-3 py-2 font-medium text-gray-900">{{ $d->domain }}</td>
+                                    <td class="px-3 py-2 font-medium text-gray-900">
+                                        <a href="{{ $rowUrl }}" target="_blank" rel="noopener noreferrer"
+                                           class="text-teal-700 underline decoration-teal-300 hover:text-teal-900 hover:decoration-teal-600">
+                                            {{ $d->domain }}
+                                        </a>
+                                    </td>
                                     <td class="px-3 py-2">{{ $d->is_primary ? __('Yes') : '—' }}</td>
                                     <td class="px-3 py-2 text-right space-x-2">
                                         @if(!$d->is_primary)

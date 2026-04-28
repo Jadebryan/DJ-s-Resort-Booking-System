@@ -166,6 +166,35 @@ final class PlatformReleaseVersionService
                     }
                 }
 
+                // GitHub "Source code (zip/tar.gz)" links are not returned as release assets.
+                // Expose them as pseudo-assets so the tenant UI can offer downloads even
+                // when no binary files were uploaded.
+                $zipballUrl = isset($data['zipball_url']) ? (string) $data['zipball_url'] : '';
+                if ($zipballUrl !== '') {
+                    $assets[] = [
+                        'name' => __('Source code (zip)'),
+                        'size' => 0,
+                        'content_type' => 'application/zip',
+                        'download_url' => $zipballUrl,
+                    ];
+                }
+                $tarballUrl = isset($data['tarball_url']) ? (string) $data['tarball_url'] : '';
+                if ($tarballUrl !== '') {
+                    $assets[] = [
+                        'name' => __('Source code (tar.gz)'),
+                        'size' => 0,
+                        'content_type' => 'application/gzip',
+                        'download_url' => $tarballUrl,
+                    ];
+                }
+
+                // Optional: if the release body is empty, build patch notes from commit messages
+                // between the previous release tag and the latest release tag.
+                $notes = trim((string) $body);
+                if ($notes === '' && $tag !== '') {
+                    $notes = $this->buildPatchNotesFromCommits($repo, $tag) ?? '';
+                }
+
                 return [
                     'source' => 'github',
                     'version' => $normalized,
@@ -173,7 +202,7 @@ final class PlatformReleaseVersionService
                     'release_name' => isset($data['name']) ? (string) $data['name'] : null,
                     'html_url' => isset($data['html_url']) ? (string) $data['html_url'] : null,
                     'published_at' => isset($data['published_at']) ? (string) $data['published_at'] : null,
-                    'body' => $body !== '' ? $body : null,
+                    'body' => $notes !== '' ? $notes : null,
                     'assets' => $assets,
                     'error' => null,
                 ];
@@ -224,19 +253,8 @@ final class PlatformReleaseVersionService
 
         $url = sprintf('https://api.github.com/repos/%s/%s/releases/latest', $owner, $name);
 
-        $request = Http::timeout(12)
-            ->withHeaders([
-                'Accept' => 'application/vnd.github+json',
-                'X-GitHub-Api-Version' => '2022-11-28',
-            ]);
-
-        $token = trim((string) config('github.token', ''));
-        if ($token !== '') {
-            $request = $request->withToken($token);
-        }
-
         try {
-            $response = $request->get($url);
+            $response = $this->githubRequest()->get($url);
         } catch (\Throwable $e) {
             Log::warning('platform.github.connection_failed', [
                 'url' => $url,
@@ -259,6 +277,167 @@ final class PlatformReleaseVersionService
         $json = $response->json();
 
         return $json;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function fetchRecentReleasesPayload(string $repo, int $perPage = 2): ?array
+    {
+        [$owner, $name] = $this->parseRepo($repo);
+        if ($owner === null || $name === null) {
+            Log::warning('platform.github.invalid_repo', ['repo' => $repo]);
+
+            return null;
+        }
+
+        $perPage = max(1, min(10, $perPage));
+        $url = sprintf('https://api.github.com/repos/%s/%s/releases?per_page=%d', $owner, $name, $perPage);
+
+        try {
+            $response = $this->githubRequest()->get($url);
+        } catch (\Throwable $e) {
+            Log::warning('platform.github.connection_failed', [
+                'url' => $url,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::warning('platform.github.releases_http', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            return null;
+        }
+
+        /** @var array<int, array<string, mixed>> $json */
+        return $json;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function fetchComparePayload(string $repo, string $baseTag, string $headTag): ?array
+    {
+        [$owner, $name] = $this->parseRepo($repo);
+        if ($owner === null || $name === null) {
+            Log::warning('platform.github.invalid_repo', ['repo' => $repo]);
+
+            return null;
+        }
+
+        // GitHub API expects "base...head" in the URL path; encode each side.
+        $url = sprintf(
+            'https://api.github.com/repos/%s/%s/compare/%s...%s',
+            $owner,
+            $name,
+            rawurlencode($baseTag),
+            rawurlencode($headTag)
+        );
+
+        try {
+            $response = $this->githubRequest()->get($url);
+        } catch (\Throwable $e) {
+            Log::warning('platform.github.connection_failed', [
+                'url' => $url,
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::warning('platform.github.compare_http', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        }
+
+        /** @var array<string, mixed> $json */
+        $json = $response->json();
+
+        return $json;
+    }
+
+    private function buildPatchNotesFromCommits(string $repo, string $latestTag): ?string
+    {
+        $releases = $this->fetchRecentReleasesPayload($repo, 2);
+        if ($releases === null || count($releases) < 1) {
+            return null;
+        }
+
+        $previousTag = null;
+        if (isset($releases[1]) && is_array($releases[1])) {
+            $previousTag = (string) ($releases[1]['tag_name'] ?? '');
+            $previousTag = trim($previousTag) !== '' ? $previousTag : null;
+        }
+
+        // If there's no previous release, compare against the initial commit range is ambiguous.
+        // In that case, fall back to showing nothing (release body can be authored manually).
+        if ($previousTag === null) {
+            return null;
+        }
+
+        $compare = $this->fetchComparePayload($repo, $previousTag, $latestTag);
+        if ($compare === null) {
+            return null;
+        }
+
+        $commits = $compare['commits'] ?? null;
+        if (! is_array($commits) || count($commits) === 0) {
+            return null;
+        }
+
+        $lines = [];
+        $lines[] = __('Changes since :tag', ['tag' => $previousTag]).':';
+
+        foreach ($commits as $c) {
+            if (! is_array($c)) {
+                continue;
+            }
+            $sha = (string) ($c['sha'] ?? '');
+            $short = $sha !== '' ? substr($sha, 0, 7) : '';
+            $message = '';
+            if (isset($c['commit']) && is_array($c['commit'])) {
+                $message = (string) (($c['commit']['message'] ?? '') ?: '');
+            }
+            $subject = trim(strtok($message, "\n") ?: '');
+            if ($subject === '') {
+                continue;
+            }
+            $lines[] = $short !== '' ? "- {$subject} ({$short})" : "- {$subject}";
+        }
+
+        $text = trim(implode("\n", $lines));
+
+        return $text !== '' ? $text : null;
+    }
+
+    private function githubRequest()
+    {
+        $request = Http::timeout(12)
+            ->withHeaders([
+                'Accept' => 'application/vnd.github+json',
+                'X-GitHub-Api-Version' => '2022-11-28',
+            ]);
+
+        $token = trim((string) config('github.token', ''));
+        if ($token !== '') {
+            $request = $request->withToken($token);
+        }
+
+        return $request;
     }
 
     /**

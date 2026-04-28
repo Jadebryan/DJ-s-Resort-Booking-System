@@ -44,10 +44,11 @@
             </div>
             <a href="{{ $gFullCalUrl }}"
                class="hidden sm:inline-flex text-xs font-semibold text-teal-700 hover:text-teal-800">{{ __('Full view') }}</a>
-            <a href="{{ tenant_url('book') }}"
+            <button type="button"
+               @click="$dispatch('open-browse')"
                class="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
                 <span class="mr-1 text-base leading-none">+</span> {{ __('New booking') }}
-            </a>
+            </button>
         </div>
     </div>
 

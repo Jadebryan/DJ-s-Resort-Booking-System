@@ -124,38 +124,12 @@
             'is_booked' => in_array((int) $r->id, $bookedRoomIds, true),
         ];
     })->values()->all();
-    $heroRoomSlides = $rooms
-        ->filter(fn ($r) => ! in_array((int) $r->id, $bookedRoomIds, true))
-        ->map(function ($r) {
-            $coverPath = $r->image_path ?: $r->images->first()?->image_path;
-            $imageUrl = $coverPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($coverPath) : '';
-            if ($imageUrl === '') {
-                return null;
-            }
-            $typeLabel = $r->type ? ucfirst((string) $r->type) : __('Room');
-            $desc = trim(strip_tags((string) ($r->description ?? '')));
-            $tagline = $desc !== ''
-                ? \Illuminate\Support\Str::limit($desc, 120)
-                : __('From :price / night', ['price' => number_format((float) $r->price_per_night, 0)]);
-
-            return [
-                'id' => (int) $r->id,
-                'name' => $r->name,
-                'type' => $typeLabel,
-                'tagline' => $tagline,
-                'image_url' => $imageUrl,
-            ];
-        })
-        ->filter()
-        ->values()
-        ->take(12)
-        ->all();
-    $useHeroRoomSlideshow = count($heroRoomSlides) > 0;
+    // Use branding-provided hero media only (room-based hero slideshow removed for stability).
+    $useHeroRoomSlideshow = false;
+    $heroRoomSlides = [];
     $seoOgImageUrl = $seoOgImagePath
         ? asset('storage/' . $seoOgImagePath)
-        : ($useHeroRoomSlideshow
-            ? $heroRoomSlides[0]['image_url']
-            : ($heroMediaType === 'image' && $heroMediaUrl ? $heroMediaUrl : asset('images/background.jpg')));
+        : ($heroMediaType === 'image' && $heroMediaUrl ? $heroMediaUrl : asset('images/background.jpg'));
     $seoFaviconUrl = $seoFaviconPath ? asset('storage/' . $seoFaviconPath) : ($logoUrl ?: asset('favicon.ico'));
     $seoTitle = $seoMetaTitle !== '' ? $seoMetaTitle : ($siteName . ' · Book Your Stay');
     $seoDescription = $seoMetaDescription !== '' ? $seoMetaDescription : 'Explore our rooms and cottages, check availability, and reserve your stay in just a few clicks.';
@@ -220,10 +194,9 @@
     promoDismissible: {{ $promoDismissible ? 'true' : 'false' }},
     promoFrequencyDays: {{ $promoFrequencyDays }},
     promoStorageKey: 'tenant-promo-dismissed-{{ $promoVersionKey }}',
-    heroSlides: @js($heroRoomSlides),
-    heroSlideIndex: 0,
-    heroSlideTimer: null,
     roomsForBooking: @js($roomsForBooking),
+    isSignedIn: @js(auth('regular_user')->check()),
+    userBookingsUrl: @js(tenant_url('user/bookings')),
     init() {
         if (this.promoVisible && this.promoDismissible) {
             try {
@@ -241,12 +214,6 @@
                 }
             } catch (_) {}
         }
-        if (Array.isArray(this.heroSlides) && this.heroSlides.length > 1) {
-            this.heroSlideTimer = setInterval(() => {
-                this.heroSlideIndex = (this.heroSlideIndex + 1) % this.heroSlides.length;
-            }, 4200);
-        }
-
         const reopenRoomId = @js(session('openBookModalRoomId'));
         if (reopenRoomId) {
             this.openBookModal(reopenRoomId);
@@ -260,6 +227,7 @@
         } catch (_) {}
     },
     openBookModal(roomId) {
+        if (!this.isSignedIn) return;
         const room = this.roomsForBooking.find(r => r.id == roomId) || null;
         if (room && room.is_booked) return;
         this.selectedRoom = room;
@@ -295,7 +263,9 @@
             return String(v || 0);
         }
     }
-}" @keydown.escape.window="bookModalOpen = false; browseModalOpen = false; selectedRoom = null">
+}"
+@open-browse-book.window="browseModalOpen = true"
+@keydown.escape.window="bookModalOpen = false; browseModalOpen = false; selectedRoom = null">
 @if (session('success') || session('error'))
     <div class="fixed inset-x-0 top-4 z-[80] flex justify-center px-4">
         <div class="w-full max-w-2xl rounded-2xl border px-4 py-3 text-sm shadow-lg backdrop-blur-md"
@@ -405,11 +375,13 @@
                     </a>
                 @endauth
 
-                <button type="button" @click="browseModalOpen = true"
-                   class="inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold text-white shadow-md transition hover:opacity-95"
-                   style="background: linear-gradient(135deg, {{ $primary }}, {{ $secondary }});">
-                    {{ __('Browse & book') }}
-                </button>
+                @guest('regular_user')
+                    <a href="{{ tenant_url('user/register') }}?reason=booking"
+                       class="inline-flex items-center justify-center rounded-full px-4 py-1.5 text-xs font-semibold text-white shadow-md transition hover:opacity-95"
+                       style="background: linear-gradient(135deg, {{ $primary }}, {{ $secondary }});">
+                        {{ __('Create account') }}
+                    </a>
+                @endguest
             </div>
             </div>
         </div>
@@ -473,27 +445,7 @@
 
             <div class="relative landing-reveal" style="animation-delay: .18s;">
                 <div class="relative rounded-3xl overflow-hidden shadow-2xl bg-slate-900 transition duration-500 hover:-translate-y-0.5">
-                    @if($useHeroRoomSlideshow)
-                        <template x-for="(slide, i) in heroSlides" :key="'hero-slide-' + slide.id">
-                            <img x-show="heroSlideIndex === i"
-                                 x-transition:enter="transition-opacity duration-500"
-                                 x-transition:enter-start="opacity-0"
-                                 x-transition:enter-end="opacity-100"
-                                 :src="slide.image_url"
-                                 :alt="slide.name"
-                                 class="absolute inset-0 h-72 w-full object-cover">
-                        </template>
-                        <div class="h-72 w-full"></div>
-                        <div class="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/35 px-2 py-1 backdrop-blur-sm">
-                            <template x-for="(slide, i) in heroSlides" :key="'hero-dot-' + slide.id">
-                                <button type="button"
-                                        @click="heroSlideIndex = i"
-                                        :class="heroSlideIndex === i ? 'bg-white' : 'bg-white/45'"
-                                        class="h-1.5 w-1.5 rounded-full transition"
-                                        :aria-label="'Go to slide ' + (i + 1)"></button>
-                            </template>
-                        </div>
-                    @elseif($heroMediaUrl && $heroMediaType === 'video')
+                    @if($heroMediaUrl && $heroMediaType === 'video')
                         <video autoplay muted loop playsinline class="h-72 w-full object-cover">
                             <source src="{{ $heroMediaUrl }}">
                         </video>
@@ -509,34 +461,15 @@
                     @endif
                     <div class="absolute inset-x-0 bottom-0 px-6 pb-5 pt-16 flex flex-col justify-end pointer-events-none"
                          style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float)$heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
-                        @if($useHeroRoomSlideshow)
-                            <template x-for="(slide, i) in heroSlides" :key="'hero-caption-' + slide.id">
-                                <div x-show="heroSlideIndex === i"
-                                     x-transition:enter="transition-opacity duration-300"
-                                     x-transition:enter-start="opacity-0"
-                                     x-transition:enter-end="opacity-100"
-                                     class="text-left">
-                                    <div class="text-xs text-slate-200 flex items-center gap-2 mb-1 flex-wrap">
-                                        <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}cc;">
-                                            {{ $siteName }}
-                                        </span>
-                                        <span class="text-slate-200/95" x-text="slide.type"></span>
-                                    </div>
-                                    <p class="text-base font-semibold text-white tracking-tight" x-text="slide.name"></p>
-                                    <p class="text-sm text-slate-100/90 mt-1 line-clamp-2" x-text="slide.tagline"></p>
-                                </div>
-                            </template>
-                        @else
-                            <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
-                                    {{ $siteName }}
-                                </span>
-                                <span class="text-slate-300">{{ $heroBadge }}</span>
-                            </div>
-                            <p class="text-sm text-slate-100">
-                                {{ $heroSubtitle }}
-                            </p>
-                        @endif
+                        <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
+                                {{ $siteName }}
+                            </span>
+                            <span class="text-slate-300">{{ $heroBadge }}</span>
+                        </div>
+                        <p class="text-sm text-slate-100">
+                            {{ $heroSubtitle }}
+                        </p>
                     </div>
                 </div>
 
@@ -590,9 +523,13 @@
                         $isCottage = $room->type === 'cottage';
                         $isBooked = in_array((int) $room->id, $bookedRoomIds ?? [], true);
                     @endphp
-                    <button type="button" @click="openBookModal({{ $room->id }})" @if($isBooked) disabled @endif
-                       class="landing-reveal group w-full overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-slate-200/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-slate-300/80 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0 disabled:hover:shadow-sm"
-                       style="animation-delay: {{ number_format(0.08 * (($loop->index % 6) + 1), 2) }}s;">
+                    <a href="{{ tenant_url('user/login') }}?reason=booking"
+                       @if(auth('regular_user')->check())
+                           @click.prevent="@if(!$isBooked) openBookModal({{ (int) $room->id }}) @endif"
+                       @endif
+                       class="landing-reveal group block w-full overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-slate-200/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:ring-slate-300/80 {{ $isBooked ? 'pointer-events-none opacity-70' : '' }}"
+                       style="animation-delay: {{ number_format(0.08 * (($loop->index % 6) + 1), 2) }}s;"
+                       @if($isBooked) aria-disabled="true" @endif>
                         <div class="relative aspect-[5/4] overflow-hidden bg-slate-200">
                             @if($coverUrl)
                                 <img src="{{ $coverUrl }}" alt="{{ $room->name }}" class="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.04]">
@@ -627,11 +564,15 @@
                                 @endif
                             </p>
                             <span class="mt-5 inline-flex items-center gap-2 text-sm font-semibold transition group-hover:gap-2.5" style="color: {{ $primary }};">
-                                {{ $isBooked ? __('Unavailable') : __('Book this stay') }}
+                                @if($isBooked)
+                                    {{ __('Unavailable') }}
+                                @else
+                                    {{ auth('regular_user')->check() ? __('Book this stay') : __('Login to book this stay') }}
+                                @endif
                                 <svg class="h-4 w-4 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                             </span>
                         </div>
-                    </button>
+                    </a>
                 @endforeach
             </div>
             @if($rooms->count() > 6)
@@ -709,8 +650,8 @@
     </div>
 </footer>
 
-<!-- Browse & Book modal -->
-<div x-show="browseModalOpen"
+<!-- Browse & Book modal (only useful when signed in) -->
+<div x-show="browseModalOpen && isSignedIn"
      x-cloak
      x-transition:enter="ease-out duration-200"
      x-transition:enter-start="opacity-0"
@@ -718,6 +659,8 @@
      x-transition:leave="ease-in duration-150"
      x-transition:leave-start="opacity-100"
      x-transition:leave-end="opacity-0"
+     data-browse-book-modal
+     style="display:none"
      class="fixed inset-0 z-50 flex items-center justify-center p-4"
      role="dialog"
      aria-modal="true"
@@ -729,9 +672,10 @@
          x-transition:leave="ease-in duration-150"
          x-transition:leave-start="opacity-100 scale-100"
          x-transition:leave-end="opacity-0 scale-95"
+         data-browse-book-backdrop
          @click.self="browseModalOpen = false"
-         class="fixed inset-0 bg-slate-900/55 backdrop-blur-sm"></div>
-    <div class="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
+         class="fixed inset-0 z-0 bg-slate-900/55 backdrop-blur-sm"></div>
+    <div class="relative z-10 w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl overflow-hidden">
         <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4">
             <h2 id="browse-modal-title" class="font-display text-xl font-semibold text-slate-900">{{ __('Rooms & cottages') }}</h2>
             <button type="button" @click="browseModalOpen = false" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition" aria-label="Close">
@@ -779,7 +723,7 @@
 </div>
 
 <!-- Book this room modal (room details + booking form) -->
-<div x-show="bookModalOpen && selectedRoom"
+<div x-show="bookModalOpen && selectedRoom && isSignedIn"
      x-cloak
      x-transition:enter="ease-out duration-200"
      x-transition:enter-start="opacity-0"

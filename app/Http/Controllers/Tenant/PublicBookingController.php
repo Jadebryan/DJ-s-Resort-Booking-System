@@ -22,11 +22,18 @@ class PublicBookingController extends Controller
 {
     public function index(Request $request): RedirectResponse
     {
-        return redirect()->to(tenant_url('/'));
+        // Booking is handled from the tenant user portal.
+        return redirect()->route('tenant.user.bookings.index');
     }
 
     public function show(Request $request): View|RedirectResponse
     {
+        if (! auth('regular_user')->check()) {
+            return redirect()
+                ->route('tenant.user.login')
+                ->with('info', __('Please create an account and sign in to book a room.'));
+        }
+
         $value = $request->route('room');
         $room = $value instanceof Room ? $value : Room::on('tenant')->findOrFail((int) $value);
 
@@ -42,7 +49,11 @@ class PublicBookingController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $isSignedIn = auth('regular_user')->check();
+        if (! auth('regular_user')->check()) {
+            return redirect()
+                ->route('tenant.user.login')
+                ->with('info', __('Please create an account and sign in to book a room.'));
+        }
 
         $rules = [
             'room_id' => ['required', 'integer', 'min:1'],
@@ -57,22 +68,11 @@ class PublicBookingController extends Controller
             'amount_paid' => array_merge(InputRules::money(true, 0.0), [new FullPaymentAmountCoversStay]),
             'payment_proof' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120'],
         ];
-        if (! $isSignedIn) {
-            $rules['guest_name'] = InputRules::personName(255, true);
-            $rules['guest_email'] = ['required', 'email:rfc,dns', 'max:254'];
-        }
         try {
             $validated = $request->validate($rules);
         } catch (\Illuminate\Validation\ValidationException $e) {
-            if (auth('regular_user')->check()) {
-                return redirect()
-                    ->route('tenant.user.bookings.index')
-                    ->withErrors($e->errors())
-                    ->withInput()
-                    ->with('openBookModalRoomId', (int) $request->input('room_id'));
-            }
-
-            return back()
+            return redirect()
+                ->route('tenant.user.bookings.index')
                 ->withErrors($e->errors())
                 ->withInput()
                 ->with('openBookModalRoomId', (int) $request->input('room_id'));
@@ -81,25 +81,17 @@ class PublicBookingController extends Controller
         // Resolve room on tenant connection (Room model uses tenant connection)
         $room = Room::find($validated['room_id']);
         if (!$room) {
-            if ($isSignedIn) {
-                return redirect()
-                    ->route('tenant.user.bookings.index')
-                    ->withInput()
-                    ->withErrors(['room_id' => 'Selected room is invalid or not available.'])
-                    ->with('openBookModalRoomId', (int) $request->input('room_id'));
-            }
-            return back()->withInput()->withErrors(['room_id' => 'Selected room is invalid or not available.'])
+            return redirect()
+                ->route('tenant.user.bookings.index')
+                ->withInput()
+                ->withErrors(['room_id' => 'Selected room is invalid or not available.'])
                 ->with('openBookModalRoomId', (int) $request->input('room_id'));
         }
         if (!$room->is_available) {
-            if ($isSignedIn) {
-                return redirect()
-                    ->route('tenant.user.bookings.index')
-                    ->withInput()
-                    ->withErrors(['room_id' => 'This room is not available for booking.'])
-                    ->with('openBookModalRoomId', (int) $room->id);
-            }
-            return back()->withInput()->withErrors(['room_id' => 'This room is not available for booking.'])
+            return redirect()
+                ->route('tenant.user.bookings.index')
+                ->withInput()
+                ->withErrors(['room_id' => 'This room is not available for booking.'])
                 ->with('openBookModalRoomId', (int) $room->id);
         }
 
@@ -117,14 +109,10 @@ class PublicBookingController extends Controller
             })->exists();
 
         if ($overlap) {
-            if ($isSignedIn) {
-                return redirect()
-                    ->route('tenant.user.bookings.index')
-                    ->withInput()
-                    ->withErrors(['check_in' => 'This room is already booked for the selected dates.'])
-                    ->with('openBookModalRoomId', (int) $room->id);
-            }
-            return back()->withInput()->withErrors(['check_in' => 'This room is already booked for the selected dates.'])
+            return redirect()
+                ->route('tenant.user.bookings.index')
+                ->withInput()
+                ->withErrors(['check_in' => 'This room is already booked for the selected dates.'])
                 ->with('openBookModalRoomId', (int) $room->id);
         }
 
@@ -135,15 +123,11 @@ class PublicBookingController extends Controller
         $userId = $user?->id;
         $proofFile = $request->file('payment_proof');
         if (! $proofFile) {
-            if (auth('regular_user')->check()) {
-                return redirect()
-                    ->route('tenant.user.bookings.index')
-                    ->withInput()
-                    ->withErrors(['payment_proof' => 'Please upload a payment proof image.'])
-                    ->with('openBookModalRoomId', (int) $room->id);
-            }
-
-            return back()->withInput()->withErrors(['payment_proof' => 'Please upload a payment proof image.']);
+            return redirect()
+                ->route('tenant.user.bookings.index')
+                ->withInput()
+                ->withErrors(['payment_proof' => 'Please upload a payment proof image.'])
+                ->with('openBookModalRoomId', (int) $room->id);
         }
         $proofPath = $proofFile->store('payment_proofs', 'public');
 
@@ -159,8 +143,8 @@ class PublicBookingController extends Controller
             'check_in' => $validated['check_in'],
             'check_out' => $validated['check_out'],
             'status' => 'pending',
-            'guest_name' => $userId ? $user->name : ($validated['guest_name'] ?? null),
-            'guest_email' => $userId ? $user->email : ($validated['guest_email'] ?? null),
+            'guest_name' => $user?->name,
+            'guest_email' => $user?->email,
             'guest_phone' => $validated['guest_phone'] ?? null,
             'notes' => $validated['notes'] ?? null,
             'payment_proof_path' => $proofPath,
@@ -198,13 +182,9 @@ class PublicBookingController extends Controller
         }
 
         $message = 'Booking request submitted with payment details. The resort will verify and confirm shortly.';
-        if ($userId) {
-            return redirect()
-                ->route('tenant.user.bookings.index')
-                ->with('success', $message);
-        }
+
         return redirect()
-            ->route('tenant.book.index')
+            ->route('tenant.user.bookings.index')
             ->with('success', $message);
     }
 

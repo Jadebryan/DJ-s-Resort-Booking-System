@@ -16,6 +16,16 @@
         </p>
     </div>
 
+    @if(request()->string('reason')->toString() === 'booking')
+        <div class="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            <p class="font-semibold">{{ __('Account required to book') }}</p>
+            <p class="mt-0.5">
+                {{ __('Please create an account and login to create a booking.') }}
+                <a class="font-semibold underline underline-offset-2" href="{{ route('tenant.user.register') }}">{{ __('Register') }}</a>
+            </p>
+        </div>
+    @endif
+
     <x-form-with-busy method="POST" action="{{ tenant_url('user/login') }}" class="space-y-3" :overlay="false" busy-message="{{ __('Signing in…') }}">
         @csrf
 

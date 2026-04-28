@@ -34,17 +34,38 @@ if (! function_exists('normalize_tenant_primary_domain')) {
 
 if (! function_exists('tenant_browser_hostname')) {
     /**
-     * Hostname for URLs and the browser (append tenant_host_suffix when the stored value is a single label).
+     * Hostname for URLs and the browser.
+     *
+     * Single-label stored values (e.g. jedssresort) become jedssresort.localhost when TENANT_HOST_SUFFIX is localhost.
+     * Multi-label values that are not a typical public FQDN (e.g. www.myresort without .com) also get the suffix
+     * so they resolve the same way as TenantDomain::forRequestHost() (host ending with .suffix strips to the stored row).
      */
     function tenant_browser_hostname(string $stored): string
     {
         $stored = strtolower(trim($stored));
         $suffix = strtolower(trim((string) config('tenancy.tenant_host_suffix', 'localhost')));
-        if ($suffix !== '' && ! str_contains($stored, '.')) {
+
+        if ($suffix === '') {
+            return $stored;
+        }
+
+        if (str_ends_with($stored, '.'.$suffix)) {
+            return $stored;
+        }
+
+        if (! str_contains($stored, '.')) {
             return $stored.'.'.$suffix;
         }
 
-        return $stored;
+        // Looks like a real public hostname (e.g. www.resort.com) — do not append dev suffix.
+        if (preg_match(
+            '/\.(com|net|org|edu|gov|mil|int|biz|info|pro|name|mobi|io|co|me|tv|app|dev|us|uk|ph|au|ca|de|fr|jp|cn|in|nz|sg|za|xyz|online|site|store|shop|cloud|tech|co\.uk|co\.nz|com\.au|com\.br)$/i',
+            $stored
+        )) {
+            return $stored;
+        }
+
+        return $stored.'.'.$suffix;
     }
 }
 

@@ -95,6 +95,7 @@
             </div>
             <div class="flex shrink-0 items-center gap-2 sm:gap-3">
             @include('TenantUser.layouts.context-help')
+            <x-page-refresh-button />
             <div class="relative"
                  x-data="{
                     open: false,

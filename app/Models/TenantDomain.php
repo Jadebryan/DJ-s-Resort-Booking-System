@@ -37,6 +37,14 @@ class TenantDomain extends Model
     }
 
     /**
+     * Absolute URL to the public landing page for this hostname (scheme/port from APP_URL or current request).
+     */
+    public function landingUrl(): string
+    {
+        return absolute_url_for_tenant_host($this->domain, '/');
+    }
+
+    /**
      * Resolve a row from the HTTP Host header (exact match, or host ending with ".{tenant_host_suffix}").
      */
     public static function forRequestHost(string $requestHost): ?self
