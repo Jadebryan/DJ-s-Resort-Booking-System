@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use App\Rules\RecaptchaValid;
 
 class RegisteredUserController extends Controller
 {
@@ -42,6 +43,9 @@ class RegisteredUserController extends Controller
             'name' => InputRules::personName(255, true),
             'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ]);
 
         $userData = [

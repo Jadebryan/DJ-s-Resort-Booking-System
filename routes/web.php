@@ -11,15 +11,12 @@ use App\Http\Controllers\Admin\TenantRegistrationController;
 // routes/web.php
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\DebugController;
-use App\Http\Controllers\Webhooks\PayMongoWebhookController;
 
 /*
  * Tenant host routes must register before any host-agnostic routes: Laravel matches
  * the first compatible route, and routes without Route::domain() accept every Host.
  */
 require __DIR__.'/usingDomain.php';
-
-Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handle'])->name('webhooks.paymongo');
 
 // Public: browse resorts (tenants) for landing page "Browse demo tenants"
 Route::get('/resorts', [TenantController::class, 'publicIndex'])->name('tenants.index');
@@ -80,7 +77,52 @@ Route::get('/debug/test-login/{slug}/{email}/{password}', function ($slug, $emai
 
 
 Route::get('/', function () {
-    return view('landing');
+    $landingTenantSlides = \App\Models\Tenant::query()
+        ->where('is_active', true)
+        ->with([
+            'plan',
+            'domains' => fn ($q) => $q->orderByDesc('is_primary'),
+        ])
+        ->orderBy('tenant_name')
+        ->get()
+        ->map(function (\App\Models\Tenant $tenant) {
+            $domain = $tenant->domains->firstWhere('is_primary', true) ?? $tenant->domains->first();
+            if (! $domain instanceof \App\Models\TenantDomain) {
+                return null;
+            }
+            $meta = is_array($tenant->metadata) ? $tenant->metadata : [];
+            $heroPath = $meta['hero_media_path'] ?? null;
+            $heroType = $meta['hero_media_type'] ?? null;
+            $imageUrl = '';
+            if ($tenant->logo_path) {
+                $imageUrl = media_url($tenant->logo_path);
+            } elseif ($heroType === 'image' && $heroPath) {
+                $imageUrl = media_url($heroPath);
+            }
+            $hue = abs(crc32((string) $tenant->id.$tenant->tenant_name)) % 360;
+            $rawTagline = trim(strip_tags((string) ($meta['hero_subtitle'] ?? '')));
+            $tagline = $rawTagline !== ''
+                ? \Illuminate\Support\Str::limit($rawTagline, 160)
+                : __('Rooms, booking, and guest pages—open their site to explore.');
+
+            return [
+                'id' => (int) $tenant->id,
+                'name' => $tenant->appDisplayName(),
+                'url' => $domain->landingUrl(),
+                'hostname' => (string) $domain->domain,
+                'image_url' => $imageUrl,
+                'hue' => $hue,
+                'hue2' => ($hue + 48) % 360,
+                'tagline' => $tagline,
+                'plan_name' => $tenant->plan?->name,
+            ];
+        })
+        ->filter()
+        ->values();
+
+    return view('landing', [
+        'landingTenantSlides' => $landingTenantSlides,
+    ]);
 })->name('landing');
 
 

@@ -40,7 +40,7 @@
          :class="{ 'lg:justify-center lg:px-2': sidebarCollapsed }">
         <a href="{{ $url('/dashboard') }}" class="flex min-w-0 items-center gap-2" :class="{ 'lg:justify-center': sidebarCollapsed }">
             @if($tenantLogoPath)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($tenantLogoPath) }}"
+                <img src="{{ media_url($tenantLogoPath) }}"
                      alt="{{ $tenantName }} logo"
                      class="h-8 w-8 shrink-0 rounded-lg border border-gray-200 bg-white object-cover">
             @else

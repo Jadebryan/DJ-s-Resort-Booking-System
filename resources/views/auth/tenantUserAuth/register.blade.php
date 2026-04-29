@@ -106,6 +106,14 @@
             </div>
         </div>
 
+        @if(config('captcha.recaptcha.enabled'))
+            <div class="pt-0.5">
+                <div class="g-recaptcha" data-sitekey="{{ (string) config('captcha.recaptcha.site_key') }}"></div>
+                @error('g-recaptcha-response') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            </div>
+            <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+        @endif
+
         <div class="pt-0.5">
             <x-busy-submit class="flex min-h-10 w-full justify-center rounded-lg border-0 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95" style="background: linear-gradient(135deg, {{ $primary }}, {{ $secondary }});" busy-text="{{ __('Creating your account…') }}">
                 {{ __('Register') }}

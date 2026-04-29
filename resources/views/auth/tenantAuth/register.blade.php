@@ -311,6 +311,14 @@
             </p>
         </div>
 
+        @if(config('captcha.recaptcha.enabled'))
+            <div class="pt-1">
+                <div class="g-recaptcha" data-sitekey="{{ (string) config('captcha.recaptcha.site_key') }}"></div>
+                @error('g-recaptcha-response') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+            </div>
+            <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+        @endif
+
         <div class="flex flex-col gap-1.5 pt-0.5 sm:flex-row sm:items-center sm:justify-between">
             <div class="order-2 text-center sm:order-1 sm:text-left">
                 <p class="text-[9px] text-slate-600 sm:text-[10px]">

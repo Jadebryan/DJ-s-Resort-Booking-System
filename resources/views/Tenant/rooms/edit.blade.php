@@ -54,7 +54,7 @@
                                       file:mr-4 file:rounded-md file:border-0 file:bg-sky-50 file:px-4 file:py-2
                                       file:text-sm file:font-medium file:text-sky-700 hover:file:bg-sky-100">
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            You can upload more photos for this room. Existing images will stay; the first uploaded image is used as the thumbnail if none is set.
+                            {{ __('Add JPEG or PNG photos (max :size KB each on this server). Existing images stay; the first new upload becomes the thumbnail if none is set.', ['size' => number_format($roomImageMaxKb ?? 5120)]) }}
                         </p>
                         <x-tenant::input-error :messages="$errors->get('images')" class="mt-1" />
                         <x-tenant::input-error :messages="$errors->get('images.*')" class="mt-1" />

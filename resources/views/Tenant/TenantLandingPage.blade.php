@@ -11,10 +11,10 @@
     $ctaSecondaryText = $meta['cta_secondary_text'] ?? 'Create account';
     $ctaPrimaryRaw = trim((string) ($meta['cta_primary_url'] ?? ''));
     $ctaSecondaryRaw = trim((string) ($meta['cta_secondary_url'] ?? ''));
-    $logoUrl = ($tenant && $tenant->logo_path) ? asset('storage/' . $tenant->logo_path) : null;
+    $logoUrl = ($tenant && $tenant->logo_path) ? media_url($tenant->logo_path) : null;
     $heroMediaPath = $meta['hero_media_path'] ?? null;
     $heroMediaType = $meta['hero_media_type'] ?? null;
-    $heroMediaUrl = $heroMediaPath ? asset('storage/' . $heroMediaPath) : null;
+    $heroMediaUrl = $heroMediaPath ? media_url($heroMediaPath) : null;
     $heroOverlayOpacity = (int) ($meta['hero_overlay_opacity'] ?? 55);
     if ($heroOverlayOpacity < 0 || $heroOverlayOpacity > 90) {
         $heroOverlayOpacity = 55;
@@ -77,7 +77,7 @@
     $promoEnabled = (bool) ($meta['promo_enabled'] ?? false);
     $promoText = trim((string) ($meta['promo_text'] ?? ''));
     $promoImagePath = $meta['promo_image_path'] ?? null;
-    $promoImageUrl = $promoImagePath ? asset('storage/' . $promoImagePath) : null;
+    $promoImageUrl = $promoImagePath ? media_url($promoImagePath) : null;
     $promoStartDate = trim((string) ($meta['promo_start_date'] ?? ''));
     $promoEndDate = trim((string) ($meta['promo_end_date'] ?? ''));
     $promoDismissible = (bool) ($meta['promo_dismissible'] ?? true);
@@ -110,7 +110,7 @@
     $availableRoomsCount = $rooms->filter(fn ($r) => ! in_array((int) $r->id, $bookedRoomIds, true))->count();
     $roomsForBooking = $rooms->map(function ($r) use ($bookedRoomIds) {
         $coverPath = $r->image_path ?: $r->images->first()?->image_path;
-        $imageUrl = $coverPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($coverPath) : '';
+        $imageUrl = $coverPath ? media_url($coverPath) : '';
 
         return [
             'id' => $r->id,
@@ -124,13 +124,45 @@
             'is_booked' => in_array((int) $r->id, $bookedRoomIds, true),
         ];
     })->values()->all();
-    // Use branding-provided hero media only (room-based hero slideshow removed for stability).
-    $useHeroRoomSlideshow = false;
-    $heroRoomSlides = [];
+    $heroRoomSlides = $rooms
+        ->filter(fn ($r) => ! in_array((int) $r->id, $bookedRoomIds, true))
+        ->values()
+        ->map(function ($r) {
+            $coverPath = $r->image_path ?: $r->images->first()?->image_path;
+            $imageUrl = $coverPath ? media_url($coverPath) : '';
+            $hue = abs(crc32((string) $r->id.$r->name)) % 360;
+
+            return [
+                'id' => (int) $r->id,
+                'name' => $r->name,
+                'blurb' => \Illuminate\Support\Str::limit(strip_tags((string) ($r->description ?? '')), 140),
+                'image_url' => $imageUrl,
+                'hue' => $hue,
+                'hue2' => ($hue + 48) % 360,
+                'type' => $r->type,
+                'price_per_night' => (float) $r->price_per_night,
+                'price_label' => '₱'.number_format((float) $r->price_per_night, 0),
+                'capacity' => $r->capacity,
+            ];
+        })
+        ->values()
+        ->all();
+    $useHeroRoomSlideshow = count($heroRoomSlides) > 0;
+    $firstHeroSlideImage = '';
+    if ($useHeroRoomSlideshow) {
+        foreach ($heroRoomSlides as $slide) {
+            if (($slide['image_url'] ?? '') !== '') {
+                $firstHeroSlideImage = $slide['image_url'];
+                break;
+            }
+        }
+    }
     $seoOgImageUrl = $seoOgImagePath
-        ? asset('storage/' . $seoOgImagePath)
-        : ($heroMediaType === 'image' && $heroMediaUrl ? $heroMediaUrl : asset('images/background.jpg'));
-    $seoFaviconUrl = $seoFaviconPath ? asset('storage/' . $seoFaviconPath) : ($logoUrl ?: asset('favicon.ico'));
+        ? media_url($seoOgImagePath)
+        : ($firstHeroSlideImage !== ''
+            ? $firstHeroSlideImage
+            : ($heroMediaType === 'image' && $heroMediaUrl ? $heroMediaUrl : asset('images/background.jpg')));
+    $seoFaviconUrl = $seoFaviconPath ? media_url($seoFaviconPath) : ($logoUrl ?: asset('favicon.ico'));
     $seoTitle = $seoMetaTitle !== '' ? $seoMetaTitle : ($siteName . ' · Book Your Stay');
     $seoDescription = $seoMetaDescription !== '' ? $seoMetaDescription : 'Explore our rooms and cottages, check availability, and reserve your stay in just a few clicks.';
     $storeUrl = tenant_url('book');
@@ -445,32 +477,159 @@
 
             <div class="relative landing-reveal" style="animation-delay: .18s;">
                 <div class="relative rounded-3xl overflow-hidden shadow-2xl bg-slate-900 transition duration-500 hover:-translate-y-0.5">
-                    @if($heroMediaUrl && $heroMediaType === 'video')
+                    @if($useHeroRoomSlideshow)
+                        <div class="relative h-72 w-full"
+                             x-data="{
+                                 slides: @js($heroRoomSlides),
+                                 idx: 0,
+                                 intervalMs: 6500,
+                                 timer: null,
+                                 paused: false,
+                                 next() {
+                                     if (this.slides.length < 2) return;
+                                     this.idx = (this.idx + 1) % this.slides.length;
+                                 },
+                                 prev() {
+                                     if (this.slides.length < 2) return;
+                                     this.idx = (this.idx - 1 + this.slides.length) % this.slides.length;
+                                 },
+                                 goTo(i) {
+                                     if (!this.slides.length) return;
+                                     this.idx = (i + this.slides.length) % this.slides.length;
+                                 },
+                                 schedule() {
+                                     clearInterval(this.timer);
+                                     this.timer = null;
+                                     if (this.slides.length < 2 || this.paused) return;
+                                     this.timer = setInterval(() => this.next(), this.intervalMs);
+                                 },
+                                 pause() {
+                                     this.paused = true;
+                                     clearInterval(this.timer);
+                                     this.timer = null;
+                                 },
+                                 resume() {
+                                     this.paused = false;
+                                     this.schedule();
+                                 }
+                             }"
+                             x-init="schedule()"
+                             @mouseenter="pause()"
+                             @mouseleave="resume()">
+                            <template x-for="(slide, i) in slides" :key="'hero-slide-' + slide.id">
+                                <div class="absolute inset-0 transition-[opacity] ease-out"
+                                     :class="idx === i ? 'z-10 opacity-100 duration-700' : 'z-0 opacity-0 pointer-events-none duration-500'">
+                                    <img x-show="slide.image_url"
+                                         :src="slide.image_url"
+                                         :alt="slide.name"
+                                         class="h-full w-full object-cover"
+                                         loading="lazy"
+                                         decoding="async"
+                                         onerror="this.onerror=null; this.src='{{ asset('images/background.jpg') }}';">
+                                    <div x-show="!slide.image_url"
+                                         class="flex h-full w-full flex-col items-center justify-center"
+                                         :style="'background: linear-gradient(145deg, hsl(' + slide.hue + ', 28%, 38%) 0%, hsl(' + slide.hue2 + ', 32%, 32%) 100%);'">
+                                        <span class="text-6xl opacity-90 drop-shadow-sm" aria-hidden="true" x-text="slide.type === 'cottage' ? '🏠' : '🛏️'"></span>
+                                    </div>
+                                </div>
+                            </template>
+                            <div class="pointer-events-none absolute inset-0 z-[15] bg-gradient-to-t from-slate-950/25 via-transparent to-slate-950/20"></div>
+                            <template x-if="slides.length > 1">
+                                <div class="absolute left-0 top-3 z-20 flex w-11 justify-center pointer-events-none sm:top-4">
+                                    <button type="button"
+                                            @click.stop="prev()"
+                                            class="pointer-events-auto ml-1 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/45 text-lg font-medium text-white shadow-md backdrop-blur-sm transition hover:bg-slate-900/65"
+                                            aria-label="{{ __('Previous room') }}">‹</button>
+                                </div>
+                            </template>
+                            <template x-if="slides.length > 1">
+                                <div class="absolute right-0 top-3 z-20 flex w-11 justify-center pointer-events-none sm:top-4">
+                                    <button type="button"
+                                            @click.stop="next()"
+                                            class="pointer-events-auto mr-1 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/45 text-lg font-medium text-white shadow-md backdrop-blur-sm transition hover:bg-slate-900/65"
+                                            aria-label="{{ __('Next room') }}">›</button>
+                                </div>
+                            </template>
+                            <div class="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col justify-end px-6 pb-4 pt-16"
+                                 style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float) $heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
+                                <div class="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-200">
+                                    <span class="inline-flex items-center rounded-full border border-white/30 px-2 py-0.5 text-white/90" style="background-color: {{ $primary }}40;">
+                                        {{ $siteName }}
+                                    </span>
+                                    <span class="text-slate-300">{{ $heroBadge }}</span>
+                                    <span class="hidden text-slate-400 sm:inline">·</span>
+                                    <span class="hidden font-medium text-slate-100 sm:inline" x-text="slides[idx] ? slides[idx].name : ''"></span>
+                                </div>
+                                <p class="line-clamp-2 text-sm leading-snug text-slate-100" x-text="slides[idx] && slides[idx].blurb ? slides[idx].blurb : @js($heroSubtitle)"></p>
+                                <p class="mt-2 text-xs text-slate-300" x-show="slides[idx]">
+                                    <span x-text="slides[idx] && slides[idx].type === 'cottage' ? '{{ __('Cottage') }}' : '{{ __('Room') }}'"></span>
+                                    <span> · </span>
+                                    <span class="tabular-nums font-semibold text-slate-100" x-text="slides[idx] ? slides[idx].price_label : ''"></span>
+                                    <span class="font-medium text-slate-400">/{{ __('night') }}</span>
+                                </p>
+                                <template x-if="slides.length > 1">
+                                    <div class="mt-3 flex justify-center gap-1.5 pointer-events-auto">
+                                        <template x-for="(slide, i) in slides" :key="'hero-dot-' + slide.id">
+                                            <button type="button"
+                                                    @click.stop="goTo(i)"
+                                                    class="h-2 rounded-full transition-all duration-300"
+                                                    :class="idx === i ? 'w-7 bg-white shadow-sm' : 'w-2 bg-white/45 hover:bg-white/75'"
+                                                    :aria-label="'{{ __('Show room') }} ' + (i + 1)"></button>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    @elseif($heroMediaUrl && $heroMediaType === 'video')
                         <video autoplay muted loop playsinline class="h-72 w-full object-cover">
                             <source src="{{ $heroMediaUrl }}">
                         </video>
+                        <div class="absolute inset-x-0 bottom-0 px-6 pb-5 pt-16 flex flex-col justify-end pointer-events-none"
+                             style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float) $heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
+                            <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
+                                    {{ $siteName }}
+                                </span>
+                                <span class="text-slate-300">{{ $heroBadge }}</span>
+                            </div>
+                            <p class="text-sm text-slate-100">
+                                {{ $heroSubtitle }}
+                            </p>
+                        </div>
                     @elseif($heroMediaUrl)
                         <img src="{{ $heroMediaUrl }}"
                              alt="{{ $siteName }}"
                              class="h-72 w-full object-cover"
                              onerror="this.onerror=null; this.src='{{ asset('images/background.jpg') }}';">
+                        <div class="absolute inset-x-0 bottom-0 px-6 pb-5 pt-16 flex flex-col justify-end pointer-events-none"
+                             style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float) $heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
+                            <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
+                                    {{ $siteName }}
+                                </span>
+                                <span class="text-slate-300">{{ $heroBadge }}</span>
+                            </div>
+                            <p class="text-sm text-slate-100">
+                                {{ $heroSubtitle }}
+                            </p>
+                        </div>
                     @else
                         <img src="{{ asset('images/background.jpg') }}"
                              alt="{{ $siteName }}"
                              class="h-72 w-full object-cover">
-                    @endif
-                    <div class="absolute inset-x-0 bottom-0 px-6 pb-5 pt-16 flex flex-col justify-end pointer-events-none"
-                         style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float)$heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
-                        <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
-                                {{ $siteName }}
-                            </span>
-                            <span class="text-slate-300">{{ $heroBadge }}</span>
+                        <div class="absolute inset-x-0 bottom-0 px-6 pb-5 pt-16 flex flex-col justify-end pointer-events-none"
+                             style="background: linear-gradient(to top, rgba(2, 6, 23, {{ $heroOverlayAlpha }}), rgba(2, 6, 23, {{ min(0.95, (float) $heroOverlayAlpha + 0.15) }}), rgba(2, 6, 23, 0));">
+                            <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 border text-white/90 border-white/30" style="background-color: {{ $primary }}40;">
+                                    {{ $siteName }}
+                                </span>
+                                <span class="text-slate-300">{{ $heroBadge }}</span>
+                            </div>
+                            <p class="text-sm text-slate-100">
+                                {{ $heroSubtitle }}
+                            </p>
                         </div>
-                        <p class="text-sm text-slate-100">
-                            {{ $heroSubtitle }}
-                        </p>
-                    </div>
+                    @endif
                 </div>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -518,7 +677,7 @@
                 @foreach($roomsList as $room)
                     @php
                         $coverPath = $room->image_path ?: $room->images->first()?->image_path;
-                        $coverUrl = $coverPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($coverPath) : null;
+                        $coverUrl = $coverPath ? media_url($coverPath) : null;
                         $hue = abs(crc32((string) $room->id.$room->name)) % 360;
                         $isCottage = $room->type === 'cottage';
                         $isBooked = in_array((int) $room->id, $bookedRoomIds ?? [], true);
@@ -690,7 +849,7 @@
                     @foreach($rooms as $room)
                         @php
                             $mCover = $room->image_path ?: $room->images->first()?->image_path;
-                            $mUrl = $mCover ? \Illuminate\Support\Facades\Storage::disk('public')->url($mCover) : null;
+                            $mUrl = $mCover ? media_url($mCover) : null;
                             $mHue = abs(crc32((string) $room->id.$room->name)) % 360;
                             $mCottage = $room->type === 'cottage';
                         @endphp

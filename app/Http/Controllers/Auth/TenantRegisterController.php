@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use App\Rules\RecaptchaValid;
 
 class TenantRegisterController extends Controller
 {
@@ -55,6 +56,9 @@ class TenantRegisterController extends Controller
             'name' => InputRules::personName(255, true),
             'email' => ['required', 'string', 'lowercase', 'email:rfc,dns', 'max:254'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ]);
 
         $plan = Plan::where('id', $request->plan_id)->where('is_active', true)->first();

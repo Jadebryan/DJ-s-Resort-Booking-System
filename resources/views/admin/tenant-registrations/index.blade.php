@@ -143,7 +143,7 @@
                                                     'payment_provider' => $r->payment_provider,
                                                     'payment_reference' => $r->payment_reference,
                                                     'payment_notes' => $r->payment_notes,
-                                                    'payment_proof_url' => $r->payment_proof_path ? \Illuminate\Support\Facades\Storage::url($r->payment_proof_path) : null,
+                                                    'payment_proof_url' => $r->payment_proof_path ? media_url($r->payment_proof_path) : null,
                                                     'applied_at_label' => $r->created_at?->timezone(config('app.timezone'))->format('M j, Y g:i A'),
                                                     'reviewed_at_label' => null,
                                                     'reviewer_name' => null,
@@ -161,6 +161,7 @@
                                                 :title="__('Approve & provision')"
                                                 :message="__('Provision this resort and notify the applicant?')"
                                                 :confirm-label="__('Approve & provision')"
+                                                :busy-label="__('Provisioning…')"
                                                 variant="primary">
                                                 <button type="button" @click="open = true" class="block w-full rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">{{ __('Approve & provision') }}</button>
                                             </x-confirm-form-button>
@@ -310,7 +311,7 @@
                                                         'payment_provider' => $h->payment_provider,
                                                         'payment_reference' => $h->payment_reference,
                                                         'payment_notes' => $h->payment_notes,
-                                                        'payment_proof_url' => $h->payment_proof_path ? \Illuminate\Support\Facades\Storage::url($h->payment_proof_path) : null,
+                                                        'payment_proof_url' => $h->payment_proof_path ? media_url($h->payment_proof_path) : null,
                                                         'applied_at_label' => $h->created_at?->timezone(config('app.timezone'))->format('M j, Y g:i A'),
                                                         'reviewed_at_label' => $h->reviewed_at?->timezone(config('app.timezone'))->format('M j, Y g:i A'),
                                                         'reviewer_name' => $h->reviewer?->name,

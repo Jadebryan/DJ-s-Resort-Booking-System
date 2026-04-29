@@ -4,7 +4,7 @@
     Slot: place a control with @click="open = true" (e.g. type="button") inside this component
     so it shares the same Alpine scope as the modal.
 
-    @props: action, method (POST, DELETE, ...), title, message?, confirmLabel, cancelLabel, variant (danger|primary)
+    @props: action, method (POST, DELETE, ...), title, message?, confirmLabel, cancelLabel, busyLabel, variant (danger|primary)
 --}}
 @props([
     'action',
@@ -13,6 +13,7 @@
     'message' => null,
     'confirmLabel' => __('Confirm'),
     'cancelLabel' => __('Cancel'),
+    'busyLabel' => __('Working…'),
     'variant' => 'danger',
 ])
 
@@ -20,11 +21,11 @@
     $m = strtoupper($method);
     $titleId = 'confirm-form-title-' . str_replace('.', '', uniqid('', true));
     $confirmClasses = $variant === 'primary'
-        ? 'rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900'
-        : 'rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900';
+        ? 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-75 dark:focus:ring-offset-gray-900'
+        : 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-75 dark:focus:ring-offset-gray-900';
 @endphp
 
-<div {{ $attributes->class('shrink-0') }} x-data="{ open: false }" @keydown.escape.window="open = false">
+<div {{ $attributes->class('shrink-0') }} x-data="{ open: false, submitting: false }" @keydown.escape.window="if (!submitting) open = false">
     {{ $slot }}
 
     <form x-ref="confirmForm" method="POST" action="{{ $action }}" class="hidden">
@@ -46,7 +47,7 @@
          role="dialog"
          aria-modal="true"
          aria-labelledby="{{ $titleId }}">
-        <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" @click="open = false" aria-hidden="true"></div>
+        <div class="fixed inset-0 bg-black/45 backdrop-blur-sm" @click="if (!submitting) open = false" aria-hidden="true"></div>
         <div x-show="open" @click.stop
              x-transition:enter="ease-out duration-200"
              x-transition:enter-start="opacity-0 scale-95"
@@ -61,13 +62,20 @@
                 </div>
             @endif
             <div class="flex items-center justify-end gap-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/50 px-6 py-4">
-                <button type="button" @click="open = false"
-                        class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <button type="button" @click="open = false" :disabled="submitting"
+                        class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50">
                     {{ $cancelLabel }}
                 </button>
-                <button type="button" @click="$refs.confirmForm.submit()"
+                <button type="button"
+                        @click="submitting = true; $refs.confirmForm.submit()"
+                        :disabled="submitting"
+                        :aria-busy="submitting"
                         class="{{ $confirmClasses }}">
-                    {{ $confirmLabel }}
+                    <span x-show="!submitting" class="inline-flex items-center justify-center">{{ $confirmLabel }}</span>
+                    <span x-show="submitting" x-cloak class="inline-flex items-center justify-center gap-2">
+                        <x-spinner class="h-4 w-4 shrink-0" />
+                        <span>{{ $busyLabel }}</span>
+                    </span>
                 </button>
             </div>
         </div>

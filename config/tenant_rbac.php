@@ -98,8 +98,6 @@ return [
         'tenant.user.bookings.index' => ['portal', 'read'],
         'tenant.user.bookings.update' => ['portal', 'update'],
         'tenant.user.bookings.upload-proof' => ['portal', 'upload_proof'],
-        'tenant.user.bookings.pay-gcash' => ['portal', 'upload_proof'],
-        'tenant.user.bookings.gcash-return' => ['portal', 'read'],
         'tenant.user.profile.edit' => ['portal_profile', 'read'],
         'tenant.user.profile.update' => ['portal_profile', 'update'],
         'tenant.user.profile.destroy' => ['portal_profile', 'update'],

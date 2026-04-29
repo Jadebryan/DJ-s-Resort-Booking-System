@@ -4,7 +4,7 @@
     $primary = $tenant?->primary_color ?? '#0d9488';
     $user = auth('regular_user')->user();
     $coverPath = $room->image_path ?: $room->images->first()?->image_path;
-    $coverUrl = $coverPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($coverPath) : null;
+    $coverUrl = $coverPath ? media_url($coverPath) : null;
     $hue = abs(crc32((string) $room->id . $room->name)) % 360;
 @endphp
 @extends('layouts.public')
@@ -257,6 +257,14 @@
                         </div>
                     </div>
                 </div>
+
+                @if(config('captcha.recaptcha.enabled'))
+                    <div class="pt-1">
+                        <div class="g-recaptcha" data-sitekey="{{ (string) config('captcha.recaptcha.site_key') }}"></div>
+                        @error('g-recaptcha-response') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                    </div>
+                    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                @endif
 
                 <x-busy-submit class="w-full rounded-2xl py-4 text-base font-semibold text-white shadow-md transition hover:brightness-105 hover:shadow-lg" style="background-color: {{ $primary }};" busy-text="{{ __('Submitting…') }}">
                     {{ __('Submit booking request') }}

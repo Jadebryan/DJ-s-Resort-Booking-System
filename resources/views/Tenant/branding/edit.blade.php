@@ -12,7 +12,7 @@
         heroOverlay: '{{ old('hero_overlay_opacity', (int)($tenant->metadata['hero_overlay_opacity'] ?? 55)) }}',
         previewMode: 'desktop',
         section: 'identity',
-        logoPreview: '{{ $tenant->logo_path ? Storage::url($tenant->logo_path) : '' }}',
+        logoPreview: '{{ $tenant->logo_path ? media_url($tenant->logo_path) : '' }}',
         logoImageRaw: '',
         logoCropOpen: false,
         logoCropReady: false,
@@ -68,7 +68,7 @@
             target.value = data;
             this.logoCropOpen = false;
         },
-        promoImagePreview: '{{ !empty($tenant->metadata['promo_image_path']) ? Storage::url($tenant->metadata['promo_image_path']) : '' }}',
+        promoImagePreview: '{{ !empty($tenant->metadata['promo_image_path']) ? media_url($tenant->metadata['promo_image_path']) : '' }}',
         promoImageRaw: '',
         promoCropOpen: false,
         promoCropReady: false,
@@ -219,7 +219,7 @@
                         <p class="text-xs font-medium text-amber-900">{{ old('promo_text', $tenant->metadata['promo_text'] ?? __('Your promo banner text appears here.')) }}</p>
                         <p class="mt-1 text-[11px] text-amber-800">{{ old('promo_cta_text', $tenant->metadata['promo_cta_text'] ?? __('Optional CTA button')) }}</p>
                         @if(!empty($tenant->metadata['promo_image_path']))
-                            <img src="{{ Storage::url($tenant->metadata['promo_image_path']) }}" alt="Promo preview" class="mt-2 h-20 w-20 rounded-xl object-cover border border-amber-200">
+                            <img src="{{ media_url($tenant->metadata['promo_image_path']) }}" alt="Promo preview" class="mt-2 h-20 w-20 rounded-xl object-cover border border-amber-200">
                         @endif
                     </div>
                 </div>

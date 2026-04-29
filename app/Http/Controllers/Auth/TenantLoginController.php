@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
+use App\Rules\RecaptchaValid;
 
 class TenantLoginController extends Controller
 {
@@ -34,6 +35,9 @@ class TenantLoginController extends Controller
         if (! $onTenantDomain) {
             $request->validate([
                 'tenant_domain' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9][A-Za-z0-9.\\-]*[A-Za-z0-9]$/'],
+                'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                    ? ['required', new RecaptchaValid($request)]
+                    : ['nullable'],
             ]);
             $domain = strtolower(trim($request->string('tenant_domain')->toString()));
             $domain = (string) preg_replace('#^https?://#i', '', $domain);
@@ -51,6 +55,9 @@ class TenantLoginController extends Controller
         $request->validate([
             'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => 'required',
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ]);
 
         $tenant = TenantDomain::forRequestHost($host)?->tenant;

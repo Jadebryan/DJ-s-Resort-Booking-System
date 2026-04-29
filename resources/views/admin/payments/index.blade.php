@@ -149,7 +149,7 @@
                                             </button>
                                             @if($requestItem->payment_proof_path)
                                                 <button type="button"
-                                                        @click="openProof('{{ \Illuminate\Support\Facades\Storage::url($requestItem->payment_proof_path) }}')"
+                                                        @click="openProof('{{ media_url($requestItem->payment_proof_path) }}')"
                                                         class="text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 sm:text-xs">{{ __('Proof') }}</button>
                                             @endif
                                             @if($requestItem->tenant_id)

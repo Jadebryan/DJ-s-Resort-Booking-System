@@ -93,6 +93,14 @@
                         </label>
                     </div>
 
+                    @if(config('captcha.recaptcha.enabled'))
+                        <div class="pt-1">
+                            <div class="g-recaptcha" data-sitekey="{{ (string) config('captcha.recaptcha.site_key') }}"></div>
+                            @error('g-recaptcha-response') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                        </div>
+                        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                    @endif
+
                     <button
                         type="submit"
                         class="flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2"

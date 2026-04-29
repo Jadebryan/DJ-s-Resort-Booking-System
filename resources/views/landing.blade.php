@@ -98,22 +98,134 @@
             </div>
 
             <!-- Right visual -->
+            @php
+                $tenantHeroSlides = ($landingTenantSlides ?? collect())->values()->all();
+                $hasTenantHeroSlides = count($tenantHeroSlides) > 0;
+            @endphp
             <div class="relative">
-                <div class="relative rounded-3xl overflow-hidden shadow-2xl bg-slate-900">
-                    <img src="{{ asset('images/background.jpg') }}"
-                         alt="Resort lagoon"
-                         class="h-72 w-full object-cover">
-                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/40 to-transparent px-6 pb-5 pt-16 flex flex-col justify-end">
-                        <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
-                            <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300 border border-emerald-400/40">
-                                Azure Haven Resort
-                            </span>
-                            <span class="text-slate-300">Bora Bora · French Polynesia</span>
+                <div class="relative rounded-3xl overflow-hidden shadow-2xl bg-slate-900 transition duration-500 hover:-translate-y-0.5">
+                    @if($hasTenantHeroSlides)
+                        <div class="relative h-72 w-full"
+                             x-data="{
+                                 slides: @js($tenantHeroSlides),
+                                 idx: 0,
+                                 intervalMs: 6000,
+                                 timer: null,
+                                 paused: false,
+                                 next() {
+                                     if (this.slides.length < 2) return;
+                                     this.idx = (this.idx + 1) % this.slides.length;
+                                 },
+                                 prev() {
+                                     if (this.slides.length < 2) return;
+                                     this.idx = (this.idx - 1 + this.slides.length) % this.slides.length;
+                                 },
+                                 goTo(i) {
+                                     if (!this.slides.length) return;
+                                     this.idx = (i + this.slides.length) % this.slides.length;
+                                 },
+                                 schedule() {
+                                     clearInterval(this.timer);
+                                     this.timer = null;
+                                     if (this.slides.length < 2 || this.paused) return;
+                                     this.timer = setInterval(() => this.next(), this.intervalMs);
+                                 },
+                                 pause() { this.paused = true; clearInterval(this.timer); this.timer = null; },
+                                 resume() { this.paused = false; this.schedule(); }
+                             }"
+                             x-init="schedule()"
+                             @mouseenter="pause()"
+                             @mouseleave="resume()">
+                            <template x-for="(slide, i) in slides" :key="'central-tenant-slide-' + slide.id">
+                                <div class="absolute inset-0 transition-[opacity] ease-out"
+                                     :class="idx === i ? 'z-10 opacity-100 duration-700 pointer-events-auto' : 'z-0 opacity-0 duration-500 pointer-events-none'">
+                                    <a :href="slide.url"
+                                       class="absolute inset-0 z-[11]"
+                                       :aria-label="`{{ __('Visit resort') }} ${slide.name}`"></a>
+                                    <img x-show="slide.image_url"
+                                         :src="slide.image_url"
+                                         :alt="slide.name"
+                                         class="relative z-10 h-full w-full object-cover pointer-events-none"
+                                         loading="lazy"
+                                         decoding="async"
+                                         onerror="this.onerror=null; this.src='{{ asset('images/background.jpg') }}';">
+                                    <div x-show="!slide.image_url"
+                                         class="relative z-10 flex h-full w-full flex-col items-center justify-center pointer-events-none"
+                                         :style="'background: linear-gradient(145deg, hsl(' + slide.hue + ', 32%, 36%) 0%, hsl(' + slide.hue2 + ', 35%, 30%) 100%);'">
+                                        <span class="text-6xl opacity-90 drop-shadow-sm" aria-hidden="true">🏝️</span>
+                                    </div>
+                                </div>
+                            </template>
+                            <div class="pointer-events-none absolute inset-0 z-[15] bg-gradient-to-t from-slate-950/30 via-transparent to-slate-950/15"></div>
+                            <template x-if="slides.length > 1">
+                                <div class="absolute left-0 top-3 z-30 flex w-11 justify-center pointer-events-none sm:top-4">
+                                    <button type="button"
+                                            @click.stop="prev()"
+                                            class="pointer-events-auto ml-1 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/45 text-lg font-medium text-white shadow-md backdrop-blur-sm transition hover:bg-slate-900/65"
+                                            aria-label="{{ __('Previous resort') }}">‹</button>
+                                </div>
+                            </template>
+                            <template x-if="slides.length > 1">
+                                <div class="absolute right-0 top-3 z-30 flex w-11 justify-center pointer-events-none sm:top-4">
+                                    <button type="button"
+                                            @click.stop="next()"
+                                            class="pointer-events-auto mr-1 flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/45 text-lg font-medium text-white shadow-md backdrop-blur-sm transition hover:bg-slate-900/65"
+                                            aria-label="{{ __('Next resort') }}">›</button>
+                                </div>
+                            </template>
+                            <div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col justify-end bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent px-6 pb-4 pt-16">
+                                <div class="pointer-events-auto">
+                                    <div class="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-200">
+                                        <span class="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-emerald-200">
+                                            {{ __('Live resort') }}
+                                        </span>
+                                        <span class="text-slate-300" x-text="slides[idx] && slides[idx].plan_name ? slides[idx].plan_name : @js(__('On the platform'))"></span>
+                                    </div>
+                                    <p class="text-base font-semibold text-white" x-text="slides[idx] ? slides[idx].name : ''"></p>
+                                    <p class="mt-0.5 text-xs text-slate-400 font-mono" x-text="slides[idx] ? slides[idx].hostname : ''"></p>
+                                    <p class="mt-2 line-clamp-2 text-sm leading-snug text-slate-100" x-text="slides[idx] ? slides[idx].tagline : ''"></p>
+                                    <a :href="slides[idx] ? slides[idx].url : '#'"
+                                       class="mt-3 inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/20">
+                                        {{ __('Visit site') }}
+                                        <span aria-hidden="true">→</span>
+                                    </a>
+                                    <template x-if="slides.length > 1">
+                                        <div class="mt-3 flex justify-center gap-1.5">
+                                            <template x-for="(slide, i) in slides" :key="'central-tenant-dot-' + slide.id">
+                                                <button type="button"
+                                                        @click.stop="goTo(i)"
+                                                        class="h-2 rounded-full transition-all duration-300"
+                                                        :class="idx === i ? 'w-7 bg-white shadow-sm' : 'w-2 bg-white/45 hover:bg-white/75'"
+                                                        :aria-label="`{{ __('Show resort') }} ${i + 1}`"></button>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
-                        <p class="text-sm text-slate-100">
-                            Ocean‑view villas, infinity pools, and private decks designed for the most relaxed guests.
-                        </p>
-                    </div>
+                    @else
+                        <div class="relative h-72 w-full">
+                        <img src="{{ asset('images/background.jpg') }}"
+                             alt="Resort lagoon"
+                             class="h-72 w-full object-cover">
+                        <div class="absolute inset-x-0 bottom-0 flex flex-col justify-end bg-gradient-to-t from-slate-950/80 via-slate-950/40 to-transparent px-6 pb-5 pt-16">
+                            <div class="text-xs text-slate-200 flex items-center gap-2 mb-1">
+                                <span class="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300 border border-emerald-400/40">
+                                    Azure Haven Resort
+                                </span>
+                                <span class="text-slate-300">Demo preview</span>
+                            </div>
+                            <p class="text-sm text-slate-100">
+                                Ocean‑view villas, infinity pools, and private decks—your resort’s page can look like this once you’re live.
+                            </p>
+                            <a href="{{ route('tenant.select.register') }}"
+                               class="mt-3 inline-flex w-max items-center gap-1 rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm transition hover:bg-white/20">
+                                {{ __('Start free as a resort') }}
+                                <span aria-hidden="true">→</span>
+                            </a>
+                        </div>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-3">

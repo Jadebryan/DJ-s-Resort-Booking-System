@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Booking;
 use App\Models\Room;
-use App\Services\PaymentService;
 use App\Rules\FullPaymentAmountCoversStay;
+use App\Services\Media\MediaStorage;
 use App\Support\GuestBookingCalendar;
 use App\Support\InputRules;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -28,11 +28,9 @@ class BookingController extends Controller
 
         $rooms = Room::where('is_available', true)->orderBy('name')->get();
 
-        $paymongoEnabled = app(PaymentService::class)->paymongoEnabled();
-
         $calendarPayload = GuestBookingCalendar::monthPayloadForUser($request, (int) auth('regular_user')->id());
 
-        return view('TenantUser.bookings.index', compact('bookings', 'rooms', 'paymongoEnabled', 'calendarPayload'));
+        return view('TenantUser.bookings.index', compact('bookings', 'rooms', 'calendarPayload'));
     }
 
     /**
@@ -168,13 +166,12 @@ class BookingController extends Controller
 
         $before = $booking->auditSnapshot();
 
-        if ($booking->payment_proof_path && Storage::disk('public')->exists($booking->payment_proof_path)) {
-            Storage::disk('public')->delete($booking->payment_proof_path);
-        }
+        $media = app(MediaStorage::class);
+        $media->deleteLocalPublicIfExists($booking->payment_proof_path);
 
-        $path = $file->store('payment_proofs', 'public');
-        $absolute = Storage::disk('public')->path($path);
-        $fileHash = is_file($absolute) ? hash_file('sha256', $absolute) : null;
+        $stored = $media->storeImage($file, 'payment_proofs');
+        $path = $stored['path'];
+        $fileHash = $stored['sha256'];
         $booking->update([
             'payment_proof_path' => $path,
             'payment_proof_file_hash' => $fileHash,

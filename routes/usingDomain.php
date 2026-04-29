@@ -147,8 +147,6 @@ Route::domain('{tenant_domain}')
             Route::get('/user/notifications/feed', [\App\Http\Controllers\TenantUser\NotificationController::class, 'feed'])->name('tenant.user.notifications.feed');
             Route::get('/user/bookings', [\App\Http\Controllers\TenantUser\BookingController::class, 'index'])->name('tenant.user.bookings.index');
             Route::put('/user/bookings/{booking}', [\App\Http\Controllers\TenantUser\BookingController::class, 'update'])->name('tenant.user.bookings.update');
-            Route::post('/user/bookings/{booking}/pay-gcash', [\App\Http\Controllers\TenantUser\PayMongoBookingPaymentController::class, 'start'])->name('tenant.user.bookings.pay-gcash')->where('booking', '[0-9]+');
-            Route::get('/user/bookings/gcash-return', [\App\Http\Controllers\TenantUser\PayMongoBookingPaymentController::class, 'returnPage'])->name('tenant.user.bookings.gcash-return');
             Route::post('/user/bookings/{booking}/upload-proof', [\App\Http\Controllers\TenantUser\BookingController::class, 'uploadProof'])->name('tenant.user.bookings.upload-proof');
             Route::get('/user/profile', [\App\Http\Controllers\tenantUserControlllers\ProfileController::class, 'edit'])->name('tenant.user.profile.edit');
             Route::patch('/user/profile', [\App\Http\Controllers\tenantUserControlllers\ProfileController::class, 'update'])->name('tenant.user.profile.update');

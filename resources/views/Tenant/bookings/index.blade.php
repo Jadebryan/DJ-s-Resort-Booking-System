@@ -196,7 +196,7 @@
                                                 <div class="text-xs text-gray-500">Method: {{ $booking->payer_gcash_no ?? '—' }}</div>
                                                 <div class="text-xs text-gray-500">Ref: {{ $booking->payer_ref_no ?? '—' }}</div>
                                                 <button type="button"
-                                                    data-proof-url="{{ asset('storage/' . $booking->payment_proof_path) }}"
+                                                    data-proof-url="{{ media_url($booking->payment_proof_path) }}"
                                                     data-proof-name="{{ e($booking->payer_full_name ?? '—') }}"
                                                     data-proof-method="{{ e($booking->payer_gcash_no ?? '—') }}"
                                                     data-proof-ref="{{ e($booking->payer_ref_no ?? '—') }}"

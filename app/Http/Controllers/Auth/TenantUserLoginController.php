@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
+use App\Rules\RecaptchaValid;
 
 class TenantUserLoginController extends Controller
 {
@@ -24,6 +25,9 @@ class TenantUserLoginController extends Controller
         $request->validate([
             'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => 'required',
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ]);
 
         $tenant = TenantDomain::forRequestHost($request->getHost())?->tenant;

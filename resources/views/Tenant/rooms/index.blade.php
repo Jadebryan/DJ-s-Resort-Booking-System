@@ -209,7 +209,7 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($rooms as $room)
                     @php
-                        $roomThumbUrl = $room->image_path ? asset('storage/' . $room->image_path) : asset('images/background.jpg');
+                        $roomThumbUrl = $room->image_path ? media_url($room->image_path, asset('images/background.jpg')) : asset('images/background.jpg');
                         $roomSearchBlob = strtolower(implode(' ', array_filter([
                             $room->name,
                             $room->description,
@@ -347,7 +347,7 @@
                                   file:mr-4 file:rounded-md file:border-0 file:bg-teal-50 file:px-4 file:py-2
                                   file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100">
                     <p class="mt-1 text-xs text-gray-500">
-                        You can select multiple images. The first one will be used as the room thumbnail.
+                        {{ __('You can select multiple JPEG or PNG images (max :size KB each on this server). The first one is the room thumbnail.', ['size' => number_format($roomImageMaxKb ?? 5120)]) }}
                     </p>
                     @error('images') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                     @error('images.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
@@ -433,7 +433,7 @@
                                       file:mr-4 file:rounded-md file:border-0 file:bg-teal-50 file:px-4 file:py-2
                                       file:text-sm file:font-medium file:text-teal-700 hover:file:bg-teal-100">
                         <p class="mt-1 text-xs text-gray-500">
-                            You can upload more photos for this room. Existing images will stay; the first uploaded image is used as the thumbnail if none is set.
+                            {{ __('Add JPEG or PNG photos (max :size KB each on this server). Existing images stay; the first new upload becomes the thumbnail if none is set.', ['size' => number_format($roomImageMaxKb ?? 5120)]) }}
                         </p>
                         @error('images') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         @error('images.*') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror

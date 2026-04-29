@@ -9,6 +9,8 @@ use App\Models\Room;
 use App\Models\Tenant;
 use App\Notifications\BookingStatusNotification;
 use App\Rules\FullPaymentAmountCoversStay;
+use App\Rules\RecaptchaValid;
+use App\Services\Media\MediaStorage;
 use App\Support\BookingPaymentValidation;
 use App\Support\InputRules;
 use Carbon\Carbon;
@@ -67,6 +69,9 @@ class PublicBookingController extends Controller
             'payer_ref_no' => InputRules::reference(80, true),
             'amount_paid' => array_merge(InputRules::money(true, 0.0), [new FullPaymentAmountCoversStay]),
             'payment_proof' => ['required', 'file', 'mimes:jpeg,jpg,png', 'max:5120'],
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ];
         try {
             $validated = $request->validate($rules);
@@ -129,13 +134,10 @@ class PublicBookingController extends Controller
                 ->withErrors(['payment_proof' => 'Please upload a payment proof image.'])
                 ->with('openBookModalRoomId', (int) $room->id);
         }
-        $proofPath = $proofFile->store('payment_proofs', 'public');
-
-        $proofFileHash = null;
-        if ($proofPath) {
-            $absolute = Storage::disk('public')->path($proofPath);
-            $proofFileHash = is_file($absolute) ? hash_file('sha256', $absolute) : null;
-        }
+        $media = app(MediaStorage::class);
+        $stored = $media->storeImage($proofFile, 'payment_proofs');
+        $proofPath = $stored['path'];
+        $proofFileHash = $stored['sha256'];
 
         $booking = Booking::create([
             'room_id' => $room->id,

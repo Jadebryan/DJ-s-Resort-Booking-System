@@ -12,7 +12,7 @@
     $siteName = $tenant instanceof \App\Models\Tenant ? $tenant->appDisplayName() : config('app.name', 'Resort');
     $primary = $tenant?->primary_color ?? '#0ea5e9';
     $secondary = $tenant?->secondary_color ?? '#0369a1';
-    $logoUrl = ($tenant && $tenant->logo_path) ? asset('storage/' . $tenant->logo_path) : null;
+    $logoUrl = ($tenant && $tenant->logo_path) ? media_url($tenant->logo_path) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

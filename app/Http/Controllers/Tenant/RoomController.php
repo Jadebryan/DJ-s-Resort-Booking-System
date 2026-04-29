@@ -7,10 +7,12 @@ use App\Models\ActivityLog;
 use App\Models\Room;
 use App\Models\Tenant;
 use App\Models\RoomImage;
+use App\Services\Media\MediaStorage;
 use App\Support\InputRules;
 use App\Support\TenantPlanFeatures;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -60,6 +62,51 @@ class RoomController extends Controller
         return $plan->allowsRoomCount(Room::count() + 1);
     }
 
+    /**
+     * Laravel's max rule uses KiB; keep this at or below PHP's effective upload cap so users get a
+     * clear size error instead of "failed to upload" when the file never reaches the app.
+     */
+    protected function roomImageMaxKilobytes(): int
+    {
+        $appCap = 5120;
+        $phpBytes = UploadedFile::getMaxFilesize();
+        $phpKb = (int) floor(((float) $phpBytes) / 1024);
+
+        if ($phpKb <= 0) {
+            return $appCap;
+        }
+
+        return min($appCap, $phpKb);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function roomImageValidationMessages(): array
+    {
+        $hint = __('Could not upload this image. Your PHP limits are :upload per file and :post per request. Try a smaller JPEG or PNG, or raise upload_max_filesize and post_max_size in php.ini.', [
+            'upload' => ini_get('upload_max_filesize') ?: '?',
+            'post' => ini_get('post_max_size') ?: '?',
+        ]);
+
+        return [
+            'images.*.uploaded' => $hint,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function roomImageFieldRules(): array
+    {
+        $maxKb = $this->roomImageMaxKilobytes();
+
+        return [
+            'images' => ['nullable', 'array'],
+            'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png', 'max:'.$maxKb],
+        ];
+    }
+
     public function index(Request $request): View|RedirectResponse
     {
         $plan = $this->getTenantPlan($request);
@@ -93,6 +140,7 @@ class RoomController extends Controller
             'roomsForJs' => $roomsForJs,
             'openModal' => session('openModal'),
             'editRoomId' => session('editRoomId'),
+            'roomImageMaxKb' => $this->roomImageMaxKilobytes(),
         ]);
     }
 
@@ -110,7 +158,9 @@ class RoomController extends Controller
                 ->route('tenant.rooms.index')
                 ->with('error', 'Your plan allows up to ' . $plan->max_rooms . ' rooms. Upgrade to add more.');
         }
-        return view('Tenant.rooms.create');
+        return view('Tenant.rooms.create', [
+            'roomImageMaxKb' => $this->roomImageMaxKilobytes(),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -129,16 +179,14 @@ class RoomController extends Controller
         }
 
         try {
-            $validated = $request->validate([
+            $validated = $request->validate(array_merge([
                 'name' => InputRules::title(255, true),
                 'description' => ['nullable', 'string'],
                 'type' => ['required', 'in:room,cottage'],
                 'capacity' => ['nullable', 'integer', 'min:1'],
                 'price_per_night' => InputRules::money(true, 0.0),
                 'is_available' => ['boolean'],
-                'images' => ['nullable', 'array'],
-                'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
-            ]);
+            ], $this->roomImageFieldRules()), $this->roomImageValidationMessages());
         } catch (ValidationException $e) {
             return redirect()
                 ->route('tenant.rooms.index')
@@ -148,17 +196,20 @@ class RoomController extends Controller
         }
 
         $validated['is_available'] = $request->boolean('is_available');
+        unset($validated['images']);
 
         $room = Room::create($validated);
 
         // Handle image uploads (multiple allowed). First image becomes primary thumbnail.
         if ($request->hasFile('images')) {
+            $media = app(MediaStorage::class);
             $paths = [];
             foreach ($request->file('images') as $file) {
                 if (!$file) {
                     continue;
                 }
-                $path = $file->store('room_images', 'public');
+                $stored = $media->storeImage($file, 'room_images');
+                $path = $stored['path'];
                 RoomImage::create([
                     'room_id' => $room->id,
                     'image_path' => $path,
@@ -186,7 +237,10 @@ class RoomController extends Controller
 
         $room = $this->roomFromRoute($request);
 
-        return view('Tenant.rooms.edit', compact('room'));
+        return view('Tenant.rooms.edit', [
+            'room' => $room,
+            'roomImageMaxKb' => $this->roomImageMaxKilobytes(),
+        ]);
     }
 
     public function update(Request $request): RedirectResponse
@@ -200,16 +254,14 @@ class RoomController extends Controller
         $room = $this->roomFromRoute($request);
 
         try {
-            $validated = $request->validate([
+            $validated = $request->validate(array_merge([
                 'name' => InputRules::title(255, true),
                 'description' => ['nullable', 'string'],
                 'type' => ['required', 'in:room,cottage'],
                 'capacity' => ['nullable', 'integer', 'min:1'],
                 'price_per_night' => InputRules::money(true, 0.0),
                 'is_available' => ['boolean'],
-                'images' => ['nullable', 'array'],
-                'images.*' => ['file', 'image', 'mimes:jpeg,jpg,png', 'max:5120'],
-            ]);
+            ], $this->roomImageFieldRules()), $this->roomImageValidationMessages());
         } catch (ValidationException $e) {
             return redirect()
                 ->route('tenant.rooms.index')
@@ -220,17 +272,20 @@ class RoomController extends Controller
         }
 
         $validated['is_available'] = $request->boolean('is_available');
+        unset($validated['images']);
 
         $room->update($validated);
 
         // Append any newly uploaded images; keep existing ones.
         if ($request->hasFile('images')) {
+            $media = app(MediaStorage::class);
             $paths = [];
             foreach ($request->file('images') as $file) {
                 if (!$file) {
                     continue;
                 }
-                $path = $file->store('room_images', 'public');
+                $stored = $media->storeImage($file, 'room_images');
+                $path = $stored['path'];
                 RoomImage::create([
                     'room_id' => $room->id,
                     'image_path' => $path,

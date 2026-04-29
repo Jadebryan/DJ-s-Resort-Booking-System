@@ -53,7 +53,7 @@
                                       file:mr-4 file:rounded-md file:border-0 file:bg-sky-50 file:px-4 file:py-2
                                       file:text-sm file:font-medium file:text-sky-700 hover:file:bg-sky-100">
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            You can select multiple images. The first one will be used as the room thumbnail.
+                            {{ __('You can select multiple JPEG or PNG images (max :size KB each on this server). The first one is the room thumbnail.', ['size' => number_format($roomImageMaxKb ?? 5120)]) }}
                         </p>
                         <x-tenant::input-error :messages="$errors->get('images')" class="mt-1" />
                         <x-tenant::input-error :messages="$errors->get('images.*')" class="mt-1" />

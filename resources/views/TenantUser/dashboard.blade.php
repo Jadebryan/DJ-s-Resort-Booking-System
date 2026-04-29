@@ -10,7 +10,7 @@
         'capacity' => $r->capacity,
         'price_per_night' => (float) $r->price_per_night,
         'description' => $r->description,
-        'image_url' => $r->image_path ? asset('storage/' . $r->image_path) : asset('images/background.jpg'),
+        'image_url' => $r->image_path ? media_url($r->image_path, asset('images/background.jpg')) : asset('images/background.jpg'),
     ])->values()->all();
     $storeUrl = tenant_url('book');
     $guestBookingsCalUrl = tenant_url('user/dashboard').'#booking-calendar';
@@ -183,7 +183,7 @@
                     @else
                         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             @foreach($rooms as $room)
-                                @php $roomImgUrl = $room->image_path ? asset('storage/' . $room->image_path) : asset('images/background.jpg'); @endphp
+                                @php $roomImgUrl = $room->image_path ? media_url($room->image_path, asset('images/background.jpg')) : asset('images/background.jpg'); @endphp
                                 <button type="button" @click="openBookModal({{ $room->id }})"
                                    class="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-teal-200 hover:shadow-md transition text-left w-full">
                                     <div class="aspect-[4/3] bg-gray-200 relative overflow-hidden">

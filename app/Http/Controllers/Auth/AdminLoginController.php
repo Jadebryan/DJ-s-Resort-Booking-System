@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use App\Rules\RecaptchaValid;
 
 class AdminLoginController extends Controller
 {
@@ -26,6 +27,9 @@ class AdminLoginController extends Controller
         $request->validate([
             'email' => ['required', 'email:rfc,dns', 'max:254'],
             'password' => 'required',
+            'g-recaptcha-response' => config('captcha.recaptcha.enabled')
+                ? ['required', new RecaptchaValid($request)]
+                : ['nullable'],
         ]);
 
         if (auth('admin')->attempt(

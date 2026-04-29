@@ -191,3 +191,29 @@ if (! function_exists('tenant_rbac_ready')) {
         }
     }
 }
+
+if (! function_exists('media_url')) {
+    /**
+     * Render a URL for stored media.
+     *
+     * Accepts either:
+     * - an absolute URL (returned as-is), or
+     * - a local public-disk path (resolved using Storage::disk('public')->url()).
+     */
+    function media_url(?string $path, string $fallback = ''): string
+    {
+        $path = is_string($path) ? trim($path) : '';
+        if ($path === '') {
+            return $fallback;
+        }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+    }
+}

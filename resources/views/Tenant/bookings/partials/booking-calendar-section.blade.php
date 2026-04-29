@@ -59,18 +59,6 @@
                     {{ __('List') }}
                 </button>
             </div>
-            @if(!empty($newBookingOnClick ?? null))
-                <button type="button"
-                        @click="{{ $newBookingOnClick }}"
-                        class="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
-                    <span class="mr-1 text-base leading-none">+</span> {{ __('New booking') }}
-                </button>
-            @else
-                <a href="{{ $newBookingUrl ?? tenant_url('book') }}"
-                   class="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700">
-                    <span class="mr-1 text-base leading-none">+</span> {{ __('New booking') }}
-                </a>
-            @endif
         </div>
     </div>
 

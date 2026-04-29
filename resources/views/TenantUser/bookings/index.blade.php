@@ -8,7 +8,7 @@
         'capacity' => $r->capacity,
         'price_per_night' => (float) $r->price_per_night,
         'description' => $r->description,
-        'image_url' => $r->image_path ? asset('storage/' . $r->image_path) : asset('images/background.jpg'),
+        'image_url' => $r->image_path ? media_url($r->image_path, asset('images/background.jpg')) : asset('images/background.jpg'),
     ])->values()->all();
     $storeUrl = tenant_url('book');
     $bookingsForDetails = collect($bookings ?? [])->map(fn($b) => [
@@ -305,7 +305,7 @@
                     @else
                         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             @foreach($rooms as $room)
-                                @php $roomImgUrl = $room->image_path ? asset('storage/' . $room->image_path) : asset('images/background.jpg'); @endphp
+                                @php $roomImgUrl = $room->image_path ? media_url($room->image_path, asset('images/background.jpg')) : asset('images/background.jpg'); @endphp
                                 <button type="button" @click="openBookModal({{ $room->id }})"
                                    class="group rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-teal-200 hover:shadow-md transition text-left w-full">
                                     <div class="aspect-[4/3] bg-gray-200 relative overflow-hidden">
@@ -482,6 +482,14 @@
                             </div>
                         </div>
 
+                        @if(config('captcha.recaptcha.enabled'))
+                            <div class="pt-2">
+                                <div class="g-recaptcha" data-sitekey="{{ (string) config('captcha.recaptcha.site_key') }}"></div>
+                                @error('g-recaptcha-response') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
+                            </div>
+                            <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                        @endif
+
                         <button type="submit" class="w-full py-3 rounded-xl font-semibold text-white shadow-lg hover:opacity-95 transition text-sm bg-teal-500 hover:bg-teal-600">
                             Submit booking with payment
                         </button>
@@ -507,46 +515,6 @@
                 </div>
                 <div class="flex-1 overflow-y-auto p-6 space-y-4">
                     <p class="text-sm text-gray-600">After uploading, the resort will verify your payment and then confirm your booking.</p>
-
-                    @if(!empty($paymongoEnabled))
-                        <div class="rounded-xl border border-teal-200 bg-teal-50/60 p-4 space-y-3">
-                            <p class="text-sm font-semibold text-teal-900">{{ __('Pay with GCash (online)') }}</p>
-                            <p class="text-xs text-teal-800/90">{{ __('You will be redirected to GCash via PayMongo. Minimum amount is ₱20. The resort still confirms your booking after payment.') }}</p>
-                            <form method="POST"
-                                  :action="payingBookingId ? `{{ tenant_path_prefix() }}/user/bookings/${payingBookingId}/pay-gcash` : '#'"
-                                  class="space-y-3">
-                                @csrf
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-900 mb-1">{{ __('Payment type') }}</label>
-                                    <select name="payment_type" required
-                                            class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900">
-                                        <option value="">{{ __('Select') }}</option>
-                                        <option value="full">{{ __('Full payment') }}</option>
-                                        <option value="partial">{{ __('Partial payment') }}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-900 mb-1">{{ __('Amount (₱) — partial only') }}</label>
-                                    <input type="number" name="amount_paid" step="0.01" min="0"
-                                           {{ \App\Support\InputHtmlAttributes::money() }}
-                                           class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900"
-                                           placeholder="{{ __('Leave blank for full payment') }}">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-900 mb-1">{{ __('Name on GCash / billing') }}</label>
-                                    <input name="payer_full_name" type="text" required value="{{ old('payer_full_name', auth('regular_user')->user()->name) }}"
-                                           {{ \App\Support\InputHtmlAttributes::personName() }}
-                                           class="w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900">
-                                </div>
-                                <button type="submit"
-                                        :disabled="!payingBookingId"
-                                        class="w-full rounded-xl bg-teal-600 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-gray-400">
-                                    {{ __('Continue to GCash') }}
-                                </button>
-                            </form>
-                        </div>
-                        <p class="text-center text-xs font-medium text-gray-500">{{ __('— or upload proof manually —') }}</p>
-                    @endif
 
                     <form method="POST"
                           :action="`{{ tenant_path_prefix() }}/user/bookings/${payingBookingId}/upload-proof`"
