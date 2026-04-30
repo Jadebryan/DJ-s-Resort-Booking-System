@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\DashboardController;
+use App\Http\Controllers\ModuleController;
 use App\Http\Middleware\SetTenantDatabase;
 use App\Models\TenantDomain;
 use App\Http\Controllers\tenantControlllers\ProfileController;
@@ -41,6 +42,8 @@ Route::domain('{tenant_domain}')
                 'bookedRoomIds' => $bookedRoomIds,
             ]);
         })->name('tenant.landing');
+
+        Route::resource('modules', ModuleController::class);
 
         Route::middleware('guest')->group(function () {
             Route::get('/forgot-password', [\App\Http\Controllers\Auth\tenantAuthController\PasswordResetLinkController::class, 'create'])
